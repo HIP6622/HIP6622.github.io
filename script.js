@@ -31,7 +31,7 @@ let chatTypingTimer = null;
 let adminMsgsLastId = null;
 let adminMsgsUnread = 0;
 
-// GLOBAL SETTINGS (Mocked for now until backend supports it)
+// GLOBAL SETTINGS
 let siteGlobalSettings = { title: "בינה ודעה", blockedEmails: [], description: "קהילת יוצרי ה-AI של ישראל" };
 try{ const locS = localStorage.getItem('siteGlobalSettings'); if(locS) siteGlobalSettings = JSON.parse(locS); } catch(e){}
 
@@ -42,7 +42,7 @@ function initGlobalSettings() {
     if(logT) logT.innerText = siteGlobalSettings.title;
 }
 
-// --- ערוצים (מעודכן לפי הבקשה) ---
+// --- ערוצים ---
 let currentChannelId = 'general';
 const CHANNELS = [
   { id: 'general', name: 'הערוץ הרשמי', icon: 'fa-star' },
@@ -1003,7 +1003,7 @@ function applyWritePerm(perm){
   bar.classList.toggle('blocked',!hasPermission);
   notice.classList.toggle('show',!hasPermission);
   if(!hasPermission){
-    notice.textContent='✋ אין לך הרשאת כתיבה כרגע — המתן ל-hip להעניק הרשאה';
+    notice.textContent='✋ אין לך הרשאת כתיבה כרגע — המתן להענקת הרשאה';
   }
 }
 
@@ -1103,27 +1103,6 @@ function toggleComposeProfile(){
     t.classList.remove('red');lbl.textContent='מבזק חדשות';icon.className='fas fa-newspaper';
     btn.classList.remove('red');
   }
-}
-
-function composeDragOver(e){
-  const items=[...(e.dataTransfer?.items||[])];
-  const hasImg=items.some(i=>i.kind==='file'&&i.type.startsWith('image/'));
-  const hasVid=items.some(i=>i.kind==='file'&&i.type.startsWith('video/'));
-  if(hasImg||hasVid){
-    e.preventDefault();e.dataTransfer.dropEffect='copy';
-    e.currentTarget.style.borderColor=hasVid?'#7c3aed':'#1a56db';
-    e.currentTarget.style.background=hasVid?'#faf5ff':'#f0f6ff';
-  }
-}
-function composeDragLeave(e){
-  if(!e.currentTarget.contains(e.relatedTarget)){e.currentTarget.style.borderColor='';e.currentTarget.style.background='';}
-}
-async function composeDrop(e){
-  e.preventDefault();
-  e.currentTarget.style.borderColor='';e.currentTarget.style.background='';
-}
-async function composePaste(e){
-  // NO FILE UPLOADS ANYMORE per user request.
 }
 
 function applyHtmlCode(){
@@ -1420,6 +1399,48 @@ function onComposeKeyDown(e){
     return;
   }
 }
+
+// ── פונקציות התצוגה המקדימה החדשות ──
+function showPreview(){
+  const ed=document.getElementById('composeEditor');
+  const editorText=editorToMarkdown(ed).trim();
+  const quoteData=ed._quoteData||null;
+  const quotePrefix=quoteData
+    ? `\u200Bquote:${quoteData.id}\n${quoteData.text.split('\n').map(l=>'> '+l).join('\n')}\n\u200B\n\n`
+    : '';
+  const text=(quotePrefix+editorText).trim();
+
+  if(!text && !composeImgUrl && !composeHtmlCode && !composeVidUrl){
+    alert('אין מה להציג, ההודעה ריקה.');
+    return;
+  }
+
+  const mockEntry = {
+    id: 'preview-123',
+    channel: currentChannelId,
+    profile: composeProfile,
+    text: text,
+    imgUrl: composeImgUrl,
+    videoUrl: composeVidUrl,
+    htmlCode: composeHtmlCode,
+    sender: me ? me.name : 'מנהל תצוגה',
+    senderEmail: me ? me.email : 'admin@preview.com',
+    time: new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',hour12:false}),
+    date: new Date().toLocaleDateString('he-IL',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'/'),
+    ts: Date.now(),
+    buttons: composeBtns.map(b=>({text:b.text,url:b.url}))
+  };
+
+  const previewHtml = buildMsg(mockEntry);
+  document.getElementById('previewModalBody').innerHTML = previewHtml;
+  document.getElementById('previewModal').style.display = 'flex';
+}
+
+function closePreview(){
+  document.getElementById('previewModal').style.display = 'none';
+  document.getElementById('previewModalBody').innerHTML = '';
+}
+// ──────────────────────────────────────────
 
 async function sendFeedPost(){
   if(!me||!isAdmin())return;
@@ -2211,6 +2232,7 @@ function openEditMsg(id){
   if(composeVidUrl)document.getElementById('composeVidUrl').value=composeVidUrl;
   updateAttachPreview();
   document.getElementById('composeSendBtn').style.display='none';
+  document.getElementById('composePreviewBtn').style.display='none';
   document.getElementById('composeEditConfirmBtn').style.display='flex';
   document.getElementById('composeEditCancelBtn').style.display='flex';
   document.getElementById('composeEditBanner').classList.add('show');
@@ -2222,6 +2244,7 @@ function cancelEditMode(){
   _editMsgId=null;
   clearCompose();
   document.getElementById('composeSendBtn').style.display='flex';
+  document.getElementById('composePreviewBtn').style.display='flex';
   document.getElementById('composeEditConfirmBtn').style.display='none';
   document.getElementById('composeEditCancelBtn').style.display='none';
   document.getElementById('composeEditBanner').classList.remove('show');
