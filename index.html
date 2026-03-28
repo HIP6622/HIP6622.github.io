@@ -88,10 +88,6 @@
           <button id="searchClear" onclick="clearSearch()"><i class="fas fa-times"></i></button>
         </div>
       </div>
-      
-      <button id="leaderboardBtn" onclick="openLeaderboard()" title="דירוג וסטטיסטיקות" class="hdr-icon-btn">
-        <i class="fas fa-chart-bar" style="font-size:13px; color:#ea580c;"></i>
-      </button>
 
       <a class="hdr-icon-btn" href="https://mail.google.com/mail/u/0/?view=cm&fs=1&tf=1&source=mailto&su=פנייה+למנהלי+%22בינה+ודעה%22&to=hip%40hamakom.ovh&body=כתבו+כאן+את+תוכן+הפנייה%3A%0A" target="_blank" rel="noopener" title="פנייה למנהל">
         <i class="fas fa-envelope" style="font-size:13px"></i>
@@ -103,42 +99,7 @@
         <i class="fas fa-bell" style="font-size:13px"></i>
       </button>
       
-      <button id="siteSettingsBtn" onclick="openSiteSettings()" title="הגדרות אתר" style="display:none; color:#7c3aed;">
-        <i class="fas fa-tools" style="font-size:13px"></i>
-      </button>
-
-      <button id="adminMsgsBtn" onclick="openAdminMsgs()" title="הודעות מנהל" style="display:none">
-        <i class="fas fa-bullhorn" style="font-size:12px"></i>
-        <div class="unread-badge" id="adminMsgsBadge"></div>
-      </button>
-      <button id="manageAdminsBtn" onclick="openManageAdmins()" title="ניהול מנהלים" style="display:none">
-        <i class="fas fa-user-cog" style="font-size:12px"></i>
-      </button>
-      <button id="adBtn" onclick="openAdPanel()" title="פרסומת" style="display:none">
-        <i class="fas fa-ad" style="font-size:13px"></i>
-      </button>
-      <div style="position:relative;">
-        <button id="writePermBtn" onclick="toggleWritePermDropdown(event)" title="הרשאות כתיבה" style="display:none">
-          <i class="fas fa-pen" style="font-size:12px"></i>
-        </button>
-        <div id="writePermDropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.13);z-index:300;min-width:220px;overflow:hidden;animation:pickerPop .14s ease-out;direction:rtl;">
-          <div style="padding:10px 14px 6px;font-size:11px;font-weight:800;color:#9ca3af;border-bottom:1px solid #f3f4f6;">הרשאות כתיבה לפיד</div>
-          <div id="writePermList" style="padding:6px 8px;display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;"></div>
-        </div>
-      </div>
-      <div style="position:relative;">
-        <button id="updateModeHdrBtn" onclick="onUpdateModeHdrClick(event)" title="מצב עדכון">
-          <i class="fas fa-satellite-dish" style="font-size:12px"></i>
-        </button>
-        <div id="updateModePopover">
-          <div class="ump-hdr">מי מעדכן כרגע</div>
-          <div class="ump-body" id="updateModePopoverBody">
-            <div class="ump-empty">אין מעדכנים פעילים</div>
-          </div>
-        </div>
-      </div>
-      <span id="adminBadge"><i class="fas fa-users"></i><span id="adminUserCount">0</span></span>
-      <div id="userAvatar" style="position:relative;"></div>
+      <div id="userAvatar" style="position:relative; margin-right:8px;"></div>
     </div>
   </header>
 
@@ -292,9 +253,6 @@
       oninput="onComposeChange()"
       onkeydown="onComposeKeyDown(event)"
     ></div>
-    <button id="updateModeNotice" onclick="toggleUpdateMode()" title="לחץ להפעלת מצב מעדכן">
-      <i class="fas fa-satellite-dish" style="font-size:10px"></i> לא מעדכן — לחץ להפעלה
-    </button>
     <button class="compose-send-btn" id="composePreviewBtn" onclick="showPreview()" title="תצוגה מקדימה" style="background:#4b5563; box-shadow:0 3px 10px rgba(75,85,99,.35);">
       <i class="fas fa-eye" style="font-size:14px"></i>
     </button>
@@ -331,8 +289,17 @@
       <button id="lbTabBars" class="lb-tab" onclick="switchLbView('bars')"><i class="fas fa-chart-bar"></i> עמודות</button>
       <button id="lbTabList" class="lb-tab" onclick="switchLbView('list')"><i class="fas fa-list-ol"></i> רשימה</button>
     </div>
-    <div id="lbContent" style="flex:1;overflow-y:auto;padding:24px;background:#f9fafb;">
-      </div>
+    <div id="lbContent" style="flex:1;overflow-y:auto;padding:24px;background:#f9fafb;"></div>
+  </div>
+</div>
+
+<div id="writePermModal" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:20px;max-width:400px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.25);overflow:hidden;">
+    <div style="padding:16px 20px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <span style="font-size:15px;font-weight:800;color:#111;">✍️ הרשאות כתיבה (כללי)</span>
+      <button onclick="closeWritePerms()" style="background:none;border:none;font-size:16px;cursor:pointer;color:#aaa;padding:4px;border-radius:8px;">✕</button>
+    </div>
+    <div id="writePermList" style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
 
@@ -418,6 +385,17 @@
         <div style="display:flex;gap:8px;margin-top:5px;">
           <button onclick="saveAd('popup')" style="flex:1;background:#1a56db;color:#fff;border:none;border-radius:10px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Heebo',sans-serif">שמור</button>
           <button onclick="deleteAd('popup')" style="flex:1;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:10px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Heebo',sans-serif">הסר</button>
+        </div>
+      </div>
+    </div>
+    <div style="border:1.5px solid #e5e7eb;border-radius:14px;padding:16px;">
+      <div style="font-size:13px;font-weight:800;color:#059669;margin-bottom:12px;"><i class="fas fa-columns" style="font-size:12px"></i> פרסומת עמודה צדדית</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input id="adSideImageUrl" type="text" placeholder="קישור לתמונה https://..." style="border:1.5px solid #e5e7eb;border-radius:10px;padding:8px 12px;font-size:13px;outline:none;direction:ltr;font-family:'Heebo',sans-serif;width:100%">
+        <input id="adSideLinkUrl" type="text" placeholder="קישור ללחיצה https://... (לתמונה בלבד)" style="border:1.5px solid #e5e7eb;border-radius:10px;padding:8px 12px;font-size:13px;outline:none;direction:ltr;font-family:'Heebo',sans-serif;width:100%">
+        <div style="display:flex;gap:8px">
+          <button onclick="saveAd('side')" style="flex:1;background:#059669;color:#fff;border:none;border-radius:10px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Heebo',sans-serif">שמור</button>
+          <button onclick="deleteAd('side')" style="flex:1;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:10px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Heebo',sans-serif">הסר</button>
         </div>
       </div>
     </div>
