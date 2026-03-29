@@ -31,9 +31,8 @@ function initGlobalSettings() {
 }
 
 let currentChannelId = 'general';
-const CHANNELS = [
+let CHANNELS = [
   { id: 'general', name: 'הערוץ הרשמי', icon: 'fa-star' },
-  { id: 'creators', name: 'לפי יוצרים', icon: 'fa-palette' },
   { id: 'news', name: 'חדשות ועדכוני AI', icon: 'fa-newspaper' },
   { id: 'system', name: 'עדכוני מערכת', icon: 'fa-bullhorn' },
   { id: 'misc', name: 'שונות (בדיחות ותכני AI)', icon: 'fa-smile-beam' }
@@ -41,9 +40,20 @@ const CHANNELS = [
 
 function renderChannels() {
   const list = document.getElementById('channelsList'); if(!list) return;
-  list.innerHTML = CHANNELS.map(ch => `<div class="channel-item ${ch.id === currentChannelId ? 'active' : ''}" onclick="switchChannel('${ch.id}', '${ch.name}')"><i class="fas ${ch.icon}"></i> ${ch.name}</div>`).join('');
+  // יצירת רשימה שכוללת גם את היוצרים הדינמיים
+  let html = CHANNELS.map(ch => `<div class="channel-item ${ch.id === currentChannelId ? 'active' : ''}" onclick="switchChannel('${ch.id}', '${ch.name}')"><i class="fas ${ch.icon}"></i> ${ch.name}</div>`).join('');
+  
+  // הוספת פיד יוצרים אוטומטי
+  const creators = Object.values(_allowedMap).filter(u => u.slug);
+  if(creators.length > 0) {
+      html += `<div style="padding:10px 15px; font-size:11px; font-weight:800; color:#aaa; background:#fafafa; border-top:1px solid #f0f0f0;">לפי יוצרים (פיד אישי)</div>`;
+      html += creators.map(c => `<div class="channel-item ${c.slug === currentChannelId ? 'active' : ''}" onclick="switchChannel('${c.slug}', 'הפיד של ${c.name}')"><i class="fas fa-user-edit"></i> ${c.name}</div>`).join('');
+  }
+  
+  list.innerHTML = html;
+  const currentName = CHANNELS.find(c=>c.id===currentChannelId)?.name || creators.find(c=>c.slug===currentChannelId)?.name || 'כללי';
   const hdrName = document.getElementById('hdrChannelName');
-  if (hdrName) hdrName.innerHTML = `${esc(siteGlobalSettings.title)} - <span style="color:#1a56db">${CHANNELS.find(c=>c.id===currentChannelId).name}</span>`;
+  if (hdrName) hdrName.innerHTML = `${esc(siteGlobalSettings.title)} - <span style="color:#1a56db">${currentName}</span>`;
 }
 
 async function switchChannel(channelId, channelName) {
@@ -65,6 +75,12 @@ function escAttr(t){return esc(t).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function isSuperAdmin(){return SUPER_ADMINS.includes(me?.email?.toLowerCase());}
 function isAdmin(){return _isAllowedAdmin;}
 
+function getRole() {
+    if(!me) return 'visitor';
+    if(isSuperAdmin()) return 'super';
+    return _allowedMap[me.email.toLowerCase()]?.role || 'visitor';
+}
+
 async function checkAllowedAdmin(){
   if(!me)return;
   try{
@@ -75,13 +91,25 @@ async function checkAllowedAdmin(){
 
   if(_isAllowedAdmin){
     await loadAllowedMap();
-    document.getElementById('adminComposeBar').classList.add('show');
-    document.getElementById('adminChatPanel').classList.add('show');
-    document.getElementById('rightSidebar').classList.add('show');
+    const role = getRole();
     
-    loadAdminChat(); setInterval(loadAdminChat, 2500); setInterval(pollChatTyping, 2500);
-    loadAdminMsgs(); setInterval(loadAdminMsgs, 5000);
-    pingChatPresence(); setInterval(pingChatPresence, 15000);
+    // הסתרת צ'אט לפי היררכיה (רק מנהל ומעלה רואים)
+    if(role === 'super' || role === 'supervisor' || role === 'manager') {
+        document.getElementById('rightSidebar').classList.add('show');
+        document.getElementById('adminChatPanel').classList.add('show');
+    }
+
+    document.getElementById('adminComposeBar').classList.add('show');
+    
+    // ביטול שמות פיקטיביים - נשתמש בשם האמיתי מהפאנל ניהול
+    const displayName = _allowedMap[me.email.toLowerCase()]?.name || me.name;
+    document.getElementById('composerNameBadge').innerText = 'כותב בתור: ' + displayName;
+    
+    // מניעת קריסות אם פונקציות לא מוגדרות
+    if(typeof loadAdminChat === 'function') { loadAdminChat(); setInterval(loadAdminChat, 2500); setInterval(pollChatTyping, 2500); }
+    if(typeof loadAdminMsgs === 'function') { loadAdminMsgs(); setInterval(loadAdminMsgs, 5000); }
+    if(typeof pingChatPresence === 'function') { pingChatPresence(); setInterval(pingChatPresence, 15000); }
+    
     await pollWritePerm(); setInterval(pollWritePerm, 3000);
     pollUpdateMode(); setInterval(pollUpdateMode, 5000);
     document.getElementById('feedWrap').style.paddingBottom='120px';
@@ -101,10 +129,11 @@ async function loadAllowedMap(){
     _allowedMap={};
     (d.emails||[]).forEach(e=>{
       if(typeof e==='object'&&e.email){
-        _allowedMap[e.email.toLowerCase()]={name:e.name||e.email.split('@')[0],picture:e.picture||''};
+        _allowedMap[e.email.toLowerCase()]={name:e.name||e.email.split('@')[0], picture:e.picture||'', slug:e.slug||'', role:e.role||'user'};
       }
     });
-    _allowedMap[ADMIN_EMAIL.toLowerCase()]={name:'דוד',picture:me?.picture||''};
+    _allowedMap[ADMIN_EMAIL.toLowerCase()]={name:'דוד',picture:me?.picture||'', role:'super'};
+    renderChannels();
   }catch(ex){}
 }
 
@@ -156,20 +185,28 @@ function applyLogin(){
   const av=document.getElementById('userAvatar');
   const avatarHtml=me.picture?`<img src="${escAttr(me.picture)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid #1a56db;box-shadow:0 2px 6px rgba(0,0,0,0.1)">`:`<div style="width:34px;height:34px;border-radius:50%;background:#1a56db;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.1)">${esc(me.name[0].toUpperCase())}</div>`;
   
-  const adminMenuHtml = isSuperAdmin() ? `
-    <div style="border-top:1px solid #e5e7eb; margin-top:8px; padding-top:8px;">
-      <div style="padding:0 14px 6px;font-size:11px;font-weight:800;color:#1a56db;text-transform:uppercase;letter-spacing:0.5px;">ניהול הערוץ</div>
-      <div style="padding:0 14px 10px;font-size:12px;font-weight:600;color:#4b5563;display:flex;align-items:center;gap:6px;"><i class="fas fa-users"></i> משתמשים רשומים: <span id="adminUserCountMenu">...</span></div>
-      
-      <button onclick="openLeaderboard()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'"><i class="fas fa-chart-bar" style="color:#ea580c;width:16px;"></i> סטטיסטיקות</button>
-      <button onclick="openSiteSettings()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'"><i class="fas fa-tools" style="color:#7c3aed;width:16px;"></i> הגדרות וחסימות</button>
-      <button onclick="openManageAdmins()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'"><i class="fas fa-user-cog" style="color:#1a56db;width:16px;"></i> מנהלים</button>
-      <button onclick="openWritePerms()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'"><i class="fas fa-pen" style="color:#059669;width:16px;"></i> הרשאות כתיבה</button>
-      <button onclick="openAdPanel()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'"><i class="fas fa-ad" style="color:#ca8a04;width:16px;"></i> פרסומות</button>
-      <button onclick="openAdminMsgs()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'"><i class="fas fa-bullhorn" style="color:#e02020;width:16px;"></i> הודעות למנהלים</button>
-      <button onclick="openReportsModal()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;transition:background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'"><i class="fas fa-flag" style="color:#dc2626;width:16px;"></i> דיווחי משתמשים</button>
-    </div>
-  ` : '';
+  // היררכיה לתפריט
+  const role = getRole();
+  let adminMenuHtml = '';
+  
+  if(role === 'super' || role === 'supervisor') {
+      adminMenuHtml += `
+        <div style="border-top:1px solid #e5e7eb; margin-top:8px; padding-top:8px;">
+          <div style="padding:0 14px 6px;font-size:11px;font-weight:800;color:#1a56db;text-transform:uppercase;letter-spacing:0.5px;">ניהול הערוץ</div>
+          <button onclick="openLeaderboard()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-chart-bar" style="color:#ea580c;width:16px;"></i> סטטיסטיקות</button>
+          <button onclick="openReportsModal()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-flag" style="color:#dc2626;width:16px;"></i> דיווחי משתמשים</button>
+          <button onclick="openManageAdmins()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-user-cog" style="color:#1a56db;width:16px;"></i> יוצרים וצוות</button>
+      `;
+  }
+  if(role === 'super') {
+      adminMenuHtml += `
+          <button onclick="openSiteSettings()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-tools" style="color:#7c3aed;width:16px;"></i> הגדרות וחסימות</button>
+          <button onclick="openWritePerms()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-pen" style="color:#059669;width:16px;"></i> הרשאות כתיבה</button>
+          <button onclick="openAdPanel()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-ad" style="color:#ca8a04;width:16px;"></i> פרסומות</button>
+          <button onclick="if(typeof openAdminMsgs==='function')openAdminMsgs()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-bullhorn" style="color:#e02020;width:16px;"></i> הודעות למנהלים</button>
+      `;
+  }
+  if(adminMenuHtml !== '') adminMenuHtml += '</div>';
 
   av.innerHTML=`<div style="cursor:pointer" onclick="toggleUserMenu(event)">${avatarHtml}</div>
   <div id="userMenu" style="display:none;position:absolute;top:54px;left:0;background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 12px 36px rgba(0,0,0,.15);z-index:900;min-width:220px;overflow:hidden;font-family:'Heebo',sans-serif;animation:pickerPop 0.2s ease-out;">
@@ -178,6 +215,7 @@ function applyLogin(){
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(me.name)}</div>
         <div style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(me.email)}</div>
+        <div style="font-size:10px;font-weight:800;color:#1a56db;">${role}</div>
       </div>
     </div>
     ${adminMenuHtml}
@@ -188,18 +226,24 @@ function applyLogin(){
   
   document.getElementById('loginScreen').style.display='none'; document.getElementById('app').style.display='flex'; document.getElementById('leftSidebar').style.display='flex';
   renderChannels();
-  fetch(BACKEND+'/feed_login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:me.email,name:me.name,picture:me.picture})}).then(r=>r.json()).then(d=>{if(isSuperAdmin()&&d.count!=null){ const ucm = document.getElementById('adminUserCountMenu'); if(ucm) ucm.textContent=d.count; }}).catch(()=>{});
+  
+  // מונה משתמשים - משיכת הנתון האמיתי ודחיפה ל-Header
+  fetch(BACKEND+'/api/users_count').then(r=>r.json()).then(d=>{
+      const pc = document.getElementById('publicUserCount');
+      if(pc) pc.textContent = d.count || '...';
+  }).catch(()=>{});
+
   checkAllowedAdmin(); 
   loadFeed(); setTimeout(loadAd,3000); setInterval(loadAd, 60*60*1000); initDark(); initNotifications();
 }
 
 async function loadAdminUsers(){
+  // פונקציה תומכת (למקרה שהייתה בשימוש)
   try{
-    const r=await fetch(BACKEND+'/feed_logins?email='+encodeURIComponent(me.email));
+    const r=await fetch(BACKEND+'/api/users_count');
     const d=await r.json();
-    const count = (d.logins||[]).length;
     const ucm = document.getElementById('adminUserCountMenu');
-    if(ucm) ucm.textContent = count;
+    if(ucm) ucm.textContent = d.count;
   }catch(e){}
 }
 
@@ -224,15 +268,18 @@ async function handleLogin(resp){
 
 function rich(t){
   if(!t)return''; let s=t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  s=s.replace(/\u200Bquote:([a-f0-9\-]+)\n((?:&gt; [^\n]*\n?)*)\u200B\n*/g,(m,qid,body)=>{const lines=body.replace(/^&gt; /gm,'').trim().split('\n');const firstLine=lines[0]||'';const rest=lines.slice(1).join(' ').trim();return `<div class="quote-block" onclick="jumpToQuotedMsg('${qid}')"><i class="fas fa-quote-right" style="font-size:9px;color:#9ca3af;"></i><span class="quote-block-text"><strong>${firstLine}</strong>${rest?' — <span style="font-weight:400">'+rest.substring(0,80)+(rest.length>80?'…':'')+'</span>':''}</span></div>`;});
   s=s.replace(/\u200B/g,'').replace(/\n/g,'<br>').replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/\*([^*\n]+)\*/g,'<strong>$1</strong>').replace(/__([^_\n]+)__/g,'<u>$1</u>').replace(/_([^_\n]+)_/g,'<em>$1</em>').replace(/~~([^~\n]+)~~/g,'<s>$1</s>').replace(/---DIVIDER---/g,'<hr class="bubble-divider">').replace(/<br>\s*(<hr[^>]*>)\s*<br>/g,'$1').replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>').replace(/(?<!href=")(https?:\/\/[^\s<>"']{1,500})/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>').replace(/\x02color:([^\x03]+)\x03([\s\S]*?)\x02\/color\x03/g,'<span style=\"color:$1\">$2</span>');
   return s;
 }
 
 function buildMsg(e){
-  const red=e.profile==='red'; const id=e.id; const lines=(e.text||'').trim().split('\n'); const h=lines[0]||''; const body=lines.slice(1).join('\n').trim();
-  let content=red?`<div class="bubble-headline">🚨 ${esc(h)}</div>`+(body?`<div class="bubble-text" style="margin-top:4px">${rich(body)}</div>`:''):`<div class="bubble-text">${rich(h+(body?'\n'+body:''))}</div>`;
+  const id=e.id; 
+  const role = getRole();
+  const canDel = isSuperAdmin() || (role === 'supervisor' && e.senderEmail === me?.email) || (role === 'manager' && e.senderEmail === me?.email);
+  
+  let content=`<div class="bubble-text">${rich(e.text||'')}</div>`;
   let media='';
+  
   if(e.imgUrl){const su=escAttr(e.imgUrl);media+=`<div class="bubble-img"><img src="${su}" loading="lazy" style="cursor:pointer;border-radius:12px;display:block;" onclick="openLightbox('${su}')" onerror="this.closest('.bubble-img').remove()"></div>`;}
   if(e.videoUrl){
     const vu=e.videoUrl; const ytMatch=vu.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/); const driveMatch=vu.match(/drive\.google\.com\/file\/d\/([^/]+)/); const isDirectVideo=/\.(mp4|webm|ogg|m3u8)([?#,]|$)/i.test(vu)||vu.includes('.m3u8');
@@ -244,8 +291,20 @@ function buildMsg(e){
   let btns=''; if(e.buttons&&e.buttons.length)btns='<div class="bubble-btns">'+e.buttons.map(b=>`<a class="lnk-btn" href="${escAttr(b.url)}" target="_blank">${esc(b.text)}</a>`).join('')+'</div>';
   if(e.htmlCode){ const safeHtml=e.htmlCode.replace(/`/g,'&#96;'); media+=`<div class="bubble-html" style="margin-top:9px;border-radius:12px;overflow:hidden;width:100%;"><iframe srcdoc="${safeHtml.replace(/"/g,'&quot;')}" style="width:100%;border:none;display:block;" sandbox="allow-scripts allow-popups" scrolling="no" onload="this.style.height=this.contentDocument.body.scrollHeight+'px'"></iframe></div>`; }
   
-  const n=cmtCount[id]||0; const canDel=isAdmin();
-  return `<div class="msg-row" data-id="${escAttr(id)}"><img class="msg-av" src="${LOGO}" onerror="this.style.display='none'"><div class="msg-col"><div class="msg-meta"><span class="msg-meta-name">${esc(siteGlobalSettings.title)}</span><span class="msg-meta-time">${e.time||''}</span>${e.edited?'<span class="msg-meta-edited">נערכה</span>':''}${isSuperAdmin()&&e.senderEmail?`<span class="msg-meta-sender">${esc(e.senderEmail.split('@')[0])}</span>`:''}</div><div class="bubble-wrap-outer"><div class="bubble-top-actions"><button class="link-btn" onclick="copyMsgLink('${escAttr(id)}',this)" title="העתק קישור"><i class="fas fa-link"></i></button><button class="cmt-btn${n>0?' has-cmt':''}" id="cbtn-${escAttr(id)}" onclick="openComments('${escAttr(id)}')"><i class="fas fa-comment"></i>${n>0?`<span style="font-size:9px;font-weight:800;margin-right:2px">${n}</span>`:''}</button><button class="msg-action-btn" onclick="reportMsg('${escAttr(id)}')" title="דווח על תוכן פוגעני"><i class="fas fa-flag"></i></button>${canDel?`<button class="msg-action-btn edit" onclick="openEditMsg('${escAttr(id)}')"><i class="fas fa-pen"></i></button><button class="msg-action-btn quote" onclick="quoteFeedMsg('${escAttr(id)}')"><i class="fas fa-quote-right"></i></button><button class="msg-action-btn del" onclick="deleteFeedMsg('${escAttr(id)}')"><i class="fas fa-trash"></i></button>`:''}</div><div class="bubble${red?' is-red':''}">${content}${media}${btns}</div></div><div class="bubble-foot"><div class="rxn-row" id="rxn-${escAttr(id)}"><button class="rxn-add-btn" onclick="openPicker(event,'${escAttr(id)}')">${REACT_SVG}</button></div></div></div></div>`;
+  // תגיות
+  let tagsHtml='';
+  if(e.tags && e.tags.length){
+      tagsHtml = '<div class="post-tags-row" style="margin-top:8px;">' + e.tags.map(t=>`<span class="post-tag" onclick="document.getElementById('searchInput').value='${escAttr(t)}';onSearch('${escAttr(t)}')"><i class="fas fa-tag"></i> ${esc(t)}</span>`).join('') + '</div>';
+  }
+
+  // ציטוטים
+  let quoteHtml='';
+  if(e.quote) {
+      quoteHtml = `<div class="quote-block" style="margin-bottom:8px;"><i class="fas fa-quote-right" style="color:#aaa;"></i><div class="quote-block-text"><strong>${esc(e.quote.sender)}:</strong> ${esc(e.quote.text)}</div></div>`;
+  }
+  
+  const n=cmtCount[id]||0;
+  return `<div class="msg-row" data-id="${escAttr(id)}"><img class="msg-av" src="${LOGO}" onerror="this.style.display='none'"><div class="msg-col"><div class="msg-meta"><span class="msg-meta-name">${esc(siteGlobalSettings.title)}</span><span class="msg-meta-time">${e.time||''}</span>${e.edited?'<span class="msg-meta-edited">נערכה</span>':''}<span class="msg-meta-sender">${esc(e.sender)}</span></div><div class="bubble-wrap-outer"><div class="bubble-top-actions"><button class="link-btn" onclick="copyMsgLink('${escAttr(id)}',this)" title="העתק קישור"><i class="fas fa-link"></i></button><button class="cmt-btn${n>0?' has-cmt':''}" id="cbtn-${escAttr(id)}" onclick="openComments('${escAttr(id)}')"><i class="fas fa-comment"></i>${n>0?`<span style="font-size:9px;font-weight:800;margin-right:2px">${n}</span>`:''}</button><button class="msg-action-btn" onclick="reportMsg('${escAttr(id)}')" title="דווח על תוכן פוגעני"><i class="fas fa-flag"></i></button>${isAdmin()?`<button class="msg-action-btn edit" onclick="openEditMsg('${escAttr(id)}')"><i class="fas fa-pen"></i></button><button class="msg-action-btn quote" onclick="quoteFeedMsg('${escAttr(id)}')"><i class="fas fa-quote-right"></i></button>`:''}${canDel?`<button class="msg-action-btn del" onclick="deleteFeedMsg('${escAttr(id)}')"><i class="fas fa-trash"></i></button>`:''}</div><div class="bubble">${quoteHtml}${content}${media}${btns}${tagsHtml}</div></div><div class="bubble-foot"><div class="rxn-row" id="rxn-${escAttr(id)}"><button class="rxn-add-btn" onclick="openPicker(event,'${escAttr(id)}')">${REACT_SVG}</button></div></div></div></div>`;
 }
 
 function copyMsgLink(id, btn){
@@ -268,14 +327,28 @@ function renderRxn(msgId,rxns){
   else{const b=document.createElement('button');b.className='rxn-add-btn'+(activeTypes.length>=5?' maxed':'');b.innerHTML=REACT_SVG;b.onclick=(ev)=>openPicker(ev,msgId);bar.appendChild(b);}
 }
 
+// תיקון אימוג'ים - סגירה בלחיצה חיצונית ואחרי בחירה
+document.addEventListener('click',e=>{
+    const picker = document.getElementById('emojiPicker');
+    if(picker && picker.classList.contains('show') && !e.target.closest('#emojiPicker') && !e.target.closest('.rxn-add-btn')){
+        picker.classList.remove('show');
+        activePicker = null;
+    }
+});
+
 function openPicker(ev,msgId){
   ev.stopPropagation();activePicker=msgId; const p=document.getElementById('emojiPicker');
   p.style.display='grid'; const rect=ev.currentTarget.getBoundingClientRect();
   p.style.top=Math.max(64, rect.top-p.offsetHeight-8)+'px'; p.style.left=Math.max(8, rect.right-p.offsetWidth)+'px';
   p.classList.add('show');
 }
-function pickEmoji(em){document.getElementById('emojiPicker').classList.remove('show');if(activePicker)doReact(activePicker,em);activePicker=null;}
-document.addEventListener('click',e=>{if(!e.target.closest('#emojiPicker')&&!e.target.closest('.rxn-add-btn'))document.getElementById('emojiPicker').classList.remove('show');});
+
+function pickEmoji(em){
+    const p = document.getElementById('emojiPicker');
+    if(p) p.classList.remove('show');
+    if(activePicker) doReact(activePicker,em);
+    activePicker = null;
+}
 
 async function doReact(msgId,emoji){
   if(!me)return; const current=rxnCache[msgId]||{}; const activeTypes=Object.entries(current).filter(([,u])=>u.length);
@@ -287,6 +360,73 @@ async function doReact(msgId,emoji){
   try{ const r=await fetch(BACKEND+'/feed_react',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:me.email,msgId,emoji})});
   const d=await r.json();if(d.status==='ok')renderRxn(msgId,d.reactions); }catch(e){}
 }
+
+// מחיקת הודעות
+async function deleteFeedMsg(id){
+  if(!confirm('למחוק הודעה זו לצמיתות?')) return;
+  try{
+    const r=await fetch(BACKEND+'/feed_delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:me.email,id:id})});
+    if((await r.json()).status==='ok'){
+      document.querySelector(`.msg-row[data-id="${id}"]`)?.remove();
+      items = items.filter(i=>i.id!==id);
+    }
+  }catch(e){}
+}
+
+// מנגנון ציטוט
+function quoteFeedMsg(id){
+    const msg = items.find(i=>i.id===id); if(!msg) return;
+    const ed = document.getElementById('composeEditor');
+    ed._quoteData = {id: id, sender: msg.sender||msg.senderEmail||'משתמש', text: (msg.text||'').replace(/<[^>]+>/g,'').substring(0,80)};
+    updateAttachPreview();
+    ed.focus();
+}
+
+// מערכת דיווחים מתקדמת
+async function reportMsg(msgId) {
+    if(!me) { alert("יש להתחבר כדי לדווח"); return; }
+    const reason = prompt("מה סיבת הדיווח על הודעה זו?");
+    if(!reason) return;
+    try {
+        const res = await fetch(BACKEND + '/feed_report', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:me.email, msgId:msgId, reason:reason})});
+        const d = await res.json();
+        if(d.status === 'ok') alert('הדיווח נשלח בהצלחה להנהלה. תודה.');
+    } catch(e) {}
+}
+
+async function openReportsModal() {
+    document.getElementById('reportsModal').style.display = 'flex';
+    document.getElementById('reportsList').innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> טוען דיווחים...</div>';
+    try {
+        const res = await fetch(BACKEND + '/reports_get?email=' + encodeURIComponent(me.email));
+        const d = await res.json();
+        const reports = d.reports || [];
+        if(!reports.length) { document.getElementById('reportsList').innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;">אין דיווחים פתוחים.</div>'; return; }
+        
+        document.getElementById('reportsList').innerHTML = reports.map(r => `
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:12px; margin-bottom:10px;">
+                <div style="font-weight:bold; color:#b91c1c; font-size:14px; margin-bottom:5px;">מדווח: ${esc(r.reporter)}</div>
+                <div style="font-size:13px; font-weight:bold; margin-bottom:5px;">סיבה: ${esc(r.reason)}</div>
+                <div style="font-size:12px; color:#4b5563; margin-bottom:10px; background:#fff; padding:8px; border-radius:6px; border:1px solid #e5e7eb;">
+                    "${esc(r.msgText).substring(0,100)}..."
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="deleteFeedMsg('${r.msgId}'); dismissReport('${r.id}')" style="background:#dc2626; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:'Heebo'; font-weight:bold; font-size:12px;">מחק את הפוסט</button>
+                    <button onclick="dismissReport('${r.id}')" style="background:#f3f4f6; color:#374151; border:1px solid #d1d5db; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:'Heebo'; font-weight:bold; font-size:12px;">טופל (הסר דיווח)</button>
+                </div>
+            </div>
+        `).join('');
+    } catch(e) { document.getElementById('reportsList').innerHTML = '<div style="color:red;text-align:center;">שגיאה</div>'; }
+}
+
+function closeReportsModal() { document.getElementById('reportsModal').style.display = 'none'; }
+async function dismissReport(reportId) {
+    try {
+        await fetch(BACKEND + '/report_resolve', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:me.email, reportId:reportId})});
+        openReportsModal();
+    } catch(e) {}
+}
+
 
 /* ── COMMENTS ── */
 function openComments(msgId){activeCmtMsgId=msgId;document.getElementById('commentsPanel').classList.add('open');loadComments(msgId);}
@@ -433,21 +573,18 @@ async function pollWritePerm(){
 
 function applyWritePerm(perm, rbac){
   _writePerm=perm; _rbacData=rbac;
-  const globalEmails=perm?.emails||[];
-  const myRbacChannels = rbac[me?.email] || [];
-  
   const bar=document.getElementById('adminComposeBar');
   const notice=document.getElementById('blockNotice');
-  
   if(!bar)return;
-  if(isSuperAdmin()){
+  
+  const role = getRole();
+  if(role === 'super') {
     bar.classList.remove('blocked'); notice.classList.remove('show');
     return;
   }
   
-  const hasGlobal = globalEmails.includes(me?.email||'');
-  const hasChannel = myRbacChannels.includes(currentChannelId);
-  const canWriteHere = hasGlobal || hasChannel;
+  // כל מנהל ומעלה יכול לכתוב
+  const canWriteHere = (role === 'manager' || role === 'supervisor' || role === 'super' || currentChannelId === _allowedMap[me.email.toLowerCase()]?.slug);
   
   bar.classList.toggle('blocked', !canWriteHere);
   notice.classList.toggle('show', !canWriteHere);
@@ -463,10 +600,10 @@ function closeWritePerms(){ document.getElementById('writePermModal').style.disp
 function renderWritePermDropdown(grantedEmails){
   const list=document.getElementById('writePermList'); if(!list)return;
   const admins=Object.entries(_allowedMap).filter(([email])=>email!==ADMIN_EMAIL.toLowerCase());
-  if(!admins.length){ list.innerHTML='<div style="padding:12px 6px;text-align:center;color:#aaa;font-size:12px;">אין מנהלים משניים</div>'; return; }
+  if(!admins.length){ list.innerHTML='<div style="padding:12px 6px;text-align:center;color:#aaa;font-size:12px;">אין משתמשים להצגה</div>'; return; }
   list.innerHTML=admins.map(([email,info])=>{
     const isGranted=grantedEmails.includes(email); const pic=info.picture||''; const initials=(info.name||email)[0].toUpperCase();
-    const av=pic?`<img src="${escAttr(pic)}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;">`:`<div style="width:30px;height:30px;border-radius:50%;background:${chatCol(info.name||email)};color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>`;
+    const av=pic?`<img src="${escAttr(pic)}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;">`:`<div style="width:30px;height:30px;border-radius:50%;background:#1a56db;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>`;
     return `<div onclick="toggleWritePerm('${escAttr(email)}',event)" style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:10px;cursor:pointer;background:${isGranted?'#eff6ff':'transparent'};border:1.5px solid ${isGranted?'#bfdbfe':'transparent'};transition:background .12s,border-color .12s;">${av}<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(info.name||email)}</div><div style="font-size:10px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(email)}</div></div><div style="width:18px;height:18px;border-radius:50%;border:2px solid ${isGranted?'#1a56db':'#d1d5db'};background:${isGranted?'#1a56db':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">${isGranted?'<i class="fas fa-check" style="font-size:8px;color:#fff;"></i>':''}</div></div>`;
   }).join('');
 }
@@ -562,12 +699,6 @@ async function pollUpdateMode(){
   }catch(e){}
 }
 
-document.addEventListener('click',function(e){
-  const pop=document.getElementById('updateModePopover'); const hdrBtn=document.getElementById('updateModeHdrBtn');
-  if(pop&&pop.classList.contains('open')&&!pop.contains(e.target)&&!hdrBtn?.contains(e.target)){ pop.classList.remove('open'); }
-});
-
-
 /* ── LEADERBOARD ── */
 let lbData = [];
 function openLeaderboard() { document.getElementById('leaderboardModal').style.display = 'flex'; loadLeaderboardData(); }
@@ -617,17 +748,11 @@ window.addEventListener('load', fetchSiteSettings);
 
 function openSiteSettings(){
     document.getElementById('siteSettingsModal').classList.add('open');
-    document.getElementById('settingsSiteTitle').value = siteGlobalSettings.title || "בינה ודעה";
     document.getElementById('settingsCommentsEnable').checked = siteGlobalSettings.commentsEnabled;
     renderBlockedUsers();
 }
 function closeSiteSettings(){ document.getElementById('siteSettingsModal').classList.remove('open'); }
 
-async function saveSiteTitle(){
-    const val = document.getElementById('settingsSiteTitle').value.trim(); if(!val) return;
-    siteGlobalSettings.title = val; initGlobalSettings();
-    if(isSuperAdmin()) { await fetch(BACKEND+'/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({admin_email:me.email, title:val})}); alert('שם האתר עודכן בשרת!'); }
-}
 
 async function saveCommentsSettings() {
     const isEnabled = document.getElementById('settingsCommentsEnable').checked; siteGlobalSettings.commentsEnabled = isEnabled;
@@ -660,87 +785,38 @@ async function assignRbac(){
     document.getElementById('rbacEmail').value = '';
 }
 
+// ייצוא מיילים כקובץ TXT
 async function exportEmailsToGroups() {
     if(!isSuperAdmin()) return;
     try {
-        const res = await fetch(BACKEND + '/api/export_emails?email=' + encodeURIComponent(me.email)); const text = await res.text();
-        const blob = new Blob([text], {type: "text/csv;charset=utf-8"}); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "community_emails.csv"; link.click();
+        const res = await fetch(BACKEND + '/api/export_emails?email=' + encodeURIComponent(me.email)); 
+        const text = await res.text();
+        const blob = new Blob([text], {type: "text/plain;charset=utf-8"}); 
+        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); 
+        link.download = "community_emails.txt"; link.click();
     } catch(e) { alert("שגיאה בייצוא המיילים"); }
 }
-
-/* ── REPORTS SYSTEM (NEW!) ── */
-async function reportMsg(msgId) {
-    if(!me) return;
-    if(!confirm("לדווח על ההודעה כתוכן פוגעני? המנהלים יבדקו את הדיווח.")) return;
-    try {
-        const res = await fetch(BACKEND + '/feed_report', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:me.email, msgId:msgId})});
-        const d = await res.json();
-        if(d.status === 'ok') alert('הדיווח נשלח בהצלחה להנהלה. תודה.');
-        else alert('שגיאה בשליחת הדיווח');
-    } catch(e) { alert('שגיאת שרת'); }
-}
-
-async function openReportsModal() {
-    document.getElementById('reportsModal').style.display = 'flex';
-    document.getElementById('reportsList').innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> טוען דיווחים...</div>';
-    try {
-        const res = await fetch(BACKEND + '/reports_get?email=' + encodeURIComponent(me.email));
-        const d = await res.json();
-        const reports = d.reports || [];
-        if(!reports.length) { document.getElementById('reportsList').innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;">אין דיווחים פתוחים.</div>'; return; }
-        
-        document.getElementById('reportsList').innerHTML = reports.map(r => `
-            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:12px; margin-bottom:10px;">
-                <div style="font-weight:bold; color:#b91c1c; font-size:14px; margin-bottom:5px;">מדווח: ${esc(r.reporter)}</div>
-                <div style="font-size:12px; color:#4b5563; margin-bottom:10px; background:#fff; padding:8px; border-radius:6px; border:1px solid #e5e7eb;">
-                    <strong>תוכן ההודעה המקורית:</strong><br>
-                    ${esc(r.msgText).substring(0,100)}...
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <button onclick="deleteReportedMsg('${r.msgId}', '${r.id}')" style="background:#dc2626; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:'Heebo'; font-weight:bold; font-size:12px;">מחק את הפוסט</button>
-                    <button onclick="dismissReport('${r.id}')" style="background:#f3f4f6; color:#374151; border:1px solid #d1d5db; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:'Heebo'; font-weight:bold; font-size:12px;">התעלם מהדיווח</button>
-                </div>
-            </div>
-        `).join('');
-    } catch(e) { document.getElementById('reportsList').innerHTML = '<div style="color:red;text-align:center;">שגיאה בטעינת הדיווחים</div>'; }
-}
-
-function closeReportsModal() { document.getElementById('reportsModal').style.display = 'none'; }
-
-async function deleteReportedMsg(msgId, reportId) {
-    if(!confirm("למחוק את הפוסט הזה מהאתר לתמיד?")) return;
-    await deleteFeedMsg(msgId);
-    await dismissReport(reportId);
-    openReportsModal(); // רענון הרשימה
-}
-
-async function dismissReport(reportId) {
-    try {
-        await fetch(BACKEND + '/report_resolve', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:me.email, reportId:reportId})});
-        openReportsModal(); // רענון הרשימה
-    } catch(e) {}
-}
-
 
 /* ── UI HELPERS & EDITOR ── */
 function closeLightbox(){document.getElementById('lightbox').classList.remove('show');document.getElementById('lbImg').src='';}
 function openLightbox(src){document.getElementById('lbImg').src=src;document.getElementById('lightbox').classList.add('show');}
-function clearCompose(){document.getElementById('composeEditor').innerHTML='';composeImgUrl='';composeVidUrl='';composeHtmlCode='';composeBtns=[]; updateAttachPreview();}
+function clearCompose(){document.getElementById('composeEditor').innerHTML='';composeImgUrl='';composeVidUrl='';composeHtmlCode='';composeBtns=[]; document.getElementById('composeEditor')._quoteData=null; updateAttachPreview();}
 
 function showPreview(){
   const ed=document.getElementById('composeEditor'); const text=ed.innerText.trim();
   if(!text && !composeImgUrl && !composeHtmlCode && !composeVidUrl){ alert('אין מה להציג.'); return; }
-  const mockEntry = { id: 'preview', channel: currentChannelId, profile: composeProfile, text: text, imgUrl: composeImgUrl, videoUrl: composeVidUrl, htmlCode: composeHtmlCode, sender: me ? me.name : 'תצוגה מקדימה', senderEmail: me ? me.email : '', time: 'עכשיו', date: 'היום', ts: Date.now(), buttons: composeBtns };
+  const mockEntry = { id: 'preview', channel: currentChannelId, text: text, imgUrl: composeImgUrl, videoUrl: composeVidUrl, htmlCode: composeHtmlCode, sender: _allowedMap[me?.email?.toLowerCase()]?.name || me.name, time: 'עכשיו', ts: Date.now(), buttons: composeBtns, quote: ed._quoteData };
   document.getElementById('previewModalBody').innerHTML = buildMsg(mockEntry); document.getElementById('previewModal').style.display = 'flex';
 }
 function closePreview(){ document.getElementById('previewModal').style.display = 'none'; document.getElementById('previewModalBody').innerHTML = ''; }
 
-function editorToMarkdown(el){ function nodeToText(node){ if(node.nodeType===Node.TEXT_NODE)return node.textContent; if(node.nodeType!==Node.ELEMENT_NODE)return''; if(node.getAttribute&&node.getAttribute('data-quote-preview'))return''; const tag=node.tagName.toLowerCase(); const inner=Array.from(node.childNodes).map(nodeToText).join(''); if(tag==='b'||tag==='strong')return'**'+inner+'**'; if(tag==='i'||tag==='em')return'_'+inner+'_'; if(tag==='u')return inner; if(tag==='br')return'\n'; if(tag==='font'){ const color=node.getAttribute('color'); if(color)return` color:${color} ${inner} /color `; return inner; } if(tag==='span'){ const style=node.getAttribute('style')||''; const colorMatch=style.match(/color:\s*([^;]+)/); if(colorMatch)return` color:${colorMatch[1].trim()} ${inner} /color `; return inner; } if(tag==='s')return`~~${inner}~~`; if(tag==='hr')return '\n---DIVIDER---\n'; if(tag==='a'){ const href=node.getAttribute('href')||''; if(href&&href.startsWith('http'))return`[${inner}](${href})`; return inner; } if(tag==='div'||tag==='p') return (node.previousElementSibling&&!node.previousElementSibling.getAttribute('data-quote-preview')?'\n':'')+inner; return inner; } return nodeToText(el); }
+// הוספתי תמיכה מדויקת בצבעים ועיצוב גם אחרי משלוח
+function editorToMarkdown(el){ function nodeToText(node){ if(node.nodeType===Node.TEXT_NODE)return node.textContent; if(node.nodeType!==Node.ELEMENT_NODE)return''; if(node.getAttribute&&node.getAttribute('data-quote-preview'))return''; const tag=node.tagName.toLowerCase(); const inner=Array.from(node.childNodes).map(nodeToText).join(''); if(tag==='b'||tag==='strong')return'**'+inner+'**'; if(tag==='i'||tag==='em')return'_'+inner+'_'; if(tag==='u')return inner; if(tag==='br')return'\n'; if(tag==='font'){ const color=node.getAttribute('color'); if(color)return`\x02color:${color}\x03${inner}\x02/color\x03`; return inner; } if(tag==='span'){ const style=node.getAttribute('style')||''; const colorMatch=style.match(/color:\s*([^;]+)/); if(colorMatch)return`\x02color:${colorMatch[1].trim()}\x03${inner}\x02/color\x03`; return inner; } if(tag==='s')return`~~${inner}~~`; if(tag==='hr')return '\n---DIVIDER---\n'; if(tag==='a'){ const href=node.getAttribute('href')||''; if(href&&href.startsWith('http'))return`[${inner}](${href})`; return inner; } if(tag==='div'||tag==='p') return (node.previousElementSibling&&!node.previousElementSibling.getAttribute('data-quote-preview')?'\n':'')+inner; return inner; } return nodeToText(el); }
 function onComposeChange(){ const ed=document.getElementById('composeEditor'); document.getElementById('composeCharCount').textContent=editorToMarkdown(ed).length; }
 function composeFormat(cmd){ const ed=document.getElementById('composeEditor'); ed.focus(); requestAnimationFrame(()=>{ document.execCommand(cmd,false,null); onComposeChange(); }); }
 function insertHeading(){ const ed=document.getElementById('composeEditor'); ed.focus(); document.execCommand('insertText',false,' •'); onComposeChange(); }
-function applyTextColor(color){ const ed=document.getElementById('composeEditor'); ed.focus(); document.execCommand('foreColor',false,color); closeAllCtbDropdowns(); onComposeChange(); }
-function removeTextColor(){ const ed=document.getElementById('composeEditor'); ed.focus(); document.execCommand('foreColor',false,'#374151'); closeAllCtbDropdowns(); onComposeChange(); }
+function applyTextColor(color){ document.execCommand('styleWithCSS', false, true); document.execCommand('foreColor', false, color); closeAllCtbDropdowns(); onComposeChange(); }
+function removeTextColor(){ document.execCommand('removeFormat', false, 'foreColor'); closeAllCtbDropdowns(); onComposeChange(); }
 function toggleCtbDropdown(id){ const el=document.getElementById(id); const wasOpen=el.classList.contains('open'); closeAllCtbDropdowns(); if(!wasOpen)el.classList.add('open'); }
 function closeAllCtbDropdowns(){ document.querySelectorAll('.ctb-dropdown').forEach(el=>el.classList.remove('open')); }
 function updateComposeImg(){ composeImgUrl=document.getElementById('composeImgUrl').value.trim(); const thumb=document.getElementById('composeImgThumb'); if(composeImgUrl){document.getElementById('composeImgThumbImg').src=composeImgUrl;thumb.style.display='block';}else{thumb.style.display='none';} updateAttachPreview(); }
@@ -753,39 +829,74 @@ function addComposeButton(){ const text=document.getElementById('composeBtnText'
 function removeComposeButton(id){ composeBtns=composeBtns.filter(b=>b.id!==id); renderComposeBtns();updateAttachPreview(); }
 function renderComposeBtns(){ document.getElementById('composeBtnList').innerHTML=composeBtns.map(b=>`<div style="display:inline-flex;align-items:center;gap:4px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;color:#ea580c;"><i class="fas fa-mouse-pointer" style="font-size:9px"></i>${esc(b.text)} <button onclick="removeComposeButton(${b.id})" style="background:none;border:none;cursor:pointer;color:#9ca3af;">✕</button></div>`).join(''); }
 
+let savedRange;
+function saveLinkSelection() { const sel = window.getSelection(); if(sel.rangeCount > 0) { savedRange = sel.getRangeAt(0); document.getElementById('composeLinkText').value = sel.toString(); } }
+function insertComposeLink() {
+    const url = document.getElementById('composeLinkUrl').value;
+    const text = document.getElementById('composeLinkText').value || url;
+    if(!url) return;
+    const a = `<a href="${url}" target="_blank" style="color:#1a56db;text-decoration:underline;">${text}</a>`;
+    if(savedRange) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(savedRange); document.execCommand('insertHTML', false, a); } 
+    else { document.getElementById('composeEditor').innerHTML += a; }
+    toggleCtbDropdown('linkDrop');
+}
+
 function updateAttachPreview(){
   const prev=document.getElementById('attachPreview'); const chips=[];
   if(composeImgUrl)chips.push(`<div class="attach-chip"><i class="fas fa-image" style="color:#1a56db;"></i> תמונה <button onclick="clearComposeImg()">✕</button></div>`);
   if(composeVidUrl)chips.push(`<div class="attach-chip"><i class="fas fa-video" style="color:#7c3aed;"></i> סרטון <button onclick="clearComposeVid()">✕</button></div>`);
   if(composeHtmlCode)chips.push(`<div class="attach-chip"><i class="fas fa-code" style="color:#059669;"></i> HTML <button onclick="clearHtmlCode()">✕</button></div>`);
   composeBtns.forEach(b=>chips.push(`<div class="attach-chip"><i class="fas fa-mouse-pointer" style="color:#ea580c;"></i> ${esc(b.text)} <button onclick="removeComposeButton(${b.id})">✕</button></div>`));
+  const ed = document.getElementById('composeEditor');
+  if(ed._quoteData) chips.push(`<div class="attach-chip"><i class="fas fa-quote-right" style="color:#aaa;"></i> צוטט: ${esc(ed._quoteData.sender)} <button onclick="document.getElementById('composeEditor')._quoteData=null;updateAttachPreview()">✕</button></div>`);
   prev.innerHTML=chips.join(''); prev.classList.toggle('show',chips.length>0);
+}
+
+// תגיות ותוויות
+function onSearch(val){ 
+    const qLow = val.toLowerCase();
+    const inner = document.getElementById('feedInner');
+    inner.innerHTML = '';
+    const filtered = items.filter(e => {
+        const t = (e.text||'').toLowerCase();
+        const tg = (e.tags||[]).join(' ').toLowerCase();
+        return t.includes(qLow) || tg.includes(qLow);
+    });
+    filtered.forEach(m => inner.innerHTML += buildMsg(m));
+}
+function clearSearch(){ 
+    document.getElementById('searchInput').value=''; 
+    renderChannels();
+    switchChannel('general');
 }
 
 async function sendFeedPost(){
   if(!me||!isAdmin())return;
-  if(!isSuperAdmin()){ const canWrite = _writePerm?.emails?.includes(me.email) || _rbacData[me.email]?.includes(currentChannelId); if(!canWrite){alert('אין לך הרשאת כתיבה בערוץ זה');return;} }
-  const ed=document.getElementById('composeEditor'); const editorText=editorToMarkdown(ed).trim(); const text=(ed._quoteData?`\u200Bquote:${ed._quoteData.id}\n${ed._quoteData.text.split('\n').map(l=>'> '+l).join('\n')}\n\u200B\n\n`:'')+editorText;
+  const role = getRole();
+  const canWrite = (role === 'super' || role === 'manager' || role === 'supervisor' || currentChannelId === _allowedMap[me.email.toLowerCase()]?.slug);
+  if(!canWrite){alert('אין לך הרשאת כתיבה בערוץ זה');return;}
+  
+  const ed=document.getElementById('composeEditor'); 
+  const text = ed.innerHTML.trim(); // שומר על צבעים בקוד HTML
+  const tagsInput = document.getElementById('composeTagsInput')?.value.trim();
+  const tags = tagsInput ? tagsInput.split(',').map(t=>t.trim()).filter(t=>t) : [];
+
   if(!text&&!composeImgUrl&&!composeHtmlCode){alert('הודעה ריקה');return;}
   const btn=document.getElementById('composeSendBtn'); btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>'; btn.disabled=true;
+  
+  const displayName = _allowedMap[me.email.toLowerCase()]?.name || me.name;
+
   try{
-    const r=await fetch(BACKEND+'/feed_add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel: currentChannelId, profile:composeProfile, text, imgUrl:composeImgUrl, videoUrl:composeVidUrl, htmlCode:composeHtmlCode, sender:me.name, senderEmail:me.email, buttons:composeBtns})});
+    const r=await fetch(BACKEND+'/feed_add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel: currentChannelId, text: text, imgUrl:composeImgUrl, videoUrl:composeVidUrl, htmlCode:composeHtmlCode, sender:displayName, senderEmail:me.email, buttons:composeBtns, quote: ed._quoteData, tags: tags})});
     const d=await r.json(); if(d.status==='ok'){ clearCompose(); document.getElementById('feedWrap').scrollTop=999999; await loadFeed(); } else { alert('שגיאה בשליחה'); }
   }catch(e){alert('שגיאת שרת');}
   btn.innerHTML='<i class="fas fa-paper-plane"></i>'; btn.disabled=false;
 }
 
-function toggleComposeProfile(){
-  composeProfile = composeProfile === 'news' ? 'red' : 'news';
-  const t=document.getElementById('profileToggle'); const lbl=document.getElementById('profileLabel'); const icon=document.getElementById('profileIcon'); const btn=document.getElementById('composeSendBtn');
-  if(composeProfile==='red'){ t.classList.add('red'); lbl.textContent='צבע אדום'; icon.className='fas fa-exclamation-triangle'; btn.classList.add('red'); }
-  else { t.classList.remove('red'); lbl.textContent='מבזק חדשות'; icon.className='fas fa-newspaper'; btn.classList.remove('red'); }
-}
-
 let _editMsgId=null;
 function openEditMsg(id){
   if(!isAdmin())return; const e=items.find(i=>i.id===id); if(!e)return; _editMsgId=id;
-  const ed=document.getElementById('composeEditor'); ed.innerText=e.text||'';
+  const ed=document.getElementById('composeEditor'); ed.innerHTML=e.text||'';
   composeImgUrl=e.imgUrl||''; composeVidUrl=e.videoUrl||''; composeHtmlCode=e.htmlCode||''; composeBtns=(e.buttons||[]).map(b=>({text:b.text,url:b.url}));
   if(composeImgUrl){ document.getElementById('composeImgUrl').value=composeImgUrl; const th=document.getElementById('composeImgThumb'); if(th){document.getElementById('composeImgThumbImg').src=composeImgUrl;th.style.display='flex';} }
   if(composeVidUrl)document.getElementById('composeVidUrl').value=composeVidUrl;
@@ -795,7 +906,7 @@ function openEditMsg(id){
 function cancelEditMode(){ _editMsgId=null; clearCompose(); document.getElementById('composeSendBtn').style.display='flex'; document.getElementById('composePreviewBtn').style.display='flex'; document.getElementById('composeEditConfirmBtn').style.display='none'; document.getElementById('composeEditCancelBtn').style.display='none'; document.getElementById('composeEditBanner').classList.remove('show'); }
 function closeEditMsg(){cancelEditMode();}
 async function saveEditMsg(){
-  if(!_editMsgId||!me)return; const ed=document.getElementById('composeEditor'); const editorText=editorToMarkdown(ed).trim();
+  if(!_editMsgId||!me)return; const ed=document.getElementById('composeEditor'); const editorText=ed.innerHTML.trim();
   if(!editorText&&!composeImgUrl&&!composeHtmlCode){alert('ההודעה לא יכולה להיות ריקה');return;}
   const btn=document.getElementById('composeEditConfirmBtn'); btn.innerHTML='<i class="fas fa-spinner fa-spin" style="font-size:12px"></i>';btn.disabled=true;
   try{
@@ -819,22 +930,7 @@ async function toggleNotifications(){
 function initNotifications(){if(localStorage.getItem('shaagat_notif')==='1'&&Notification.permission==='granted'){notificationsOn=true;document.getElementById('notifBtn')?.classList.add('active');}}
 function sendNotification(title,body){if(notificationsOn&&Notification.permission==='granted'&&document.visibilityState!=='visible') new Notification(title||'בינה ודעה',{body:body||'הודעה חדשה',icon:LOGO});}
 
-let searchTimer=null;
-function toggleSearch(){ const bar=document.getElementById('searchBar');const btn=document.getElementById('searchBtn'); if(bar.classList.contains('open')){clearSearch();}else{bar.classList.add('open');btn.classList.add('active');setTimeout(()=>document.getElementById('searchInput').focus(),280);} }
-function onSearch(val){ const clear=document.getElementById('searchClear');clear.classList.toggle('show',val.length>0); clearTimeout(searchTimer); if(!val.trim()){document.getElementById('searchResults').style.display='none';document.getElementById('feedWrap').style.display='';return;} searchTimer=setTimeout(()=>doSearch(val.trim()),250); }
-async function doSearch(q){
-  const qLow=q.toLowerCase(); document.getElementById('feedWrap').style.display='none'; document.getElementById('searchResults').style.display='block'; const inner=document.getElementById('searchResultsInner'); const empty=document.getElementById('searchEmpty'); inner.innerHTML='<div style="text-align:center;padding:30px;color:#aaa;"><i class="fas fa-spinner fa-spin"></i> מחפש...</div>'; empty.style.display='none';
-  let allItems=[]; let before=0;
-  for(let page=0;page<10;page++){ try{ const url=before?BACKEND+`/feed?channel=${currentChannelId}&before=${before}&limit=50`:BACKEND+`/feed?channel=${currentChannelId}&limit=50`; const r=await fetch(url);const d=await r.json(); if(d.status!=='ok'||!d.feed.length)break; allItems.push(...d.feed); if(d.feed.length<50)break; before=Math.min(...d.feed.map(e=>e.ts||Infinity)); }catch(e){break;} }
-  const results=allItems.filter(e=>(e.text||'').toLowerCase().includes(qLow));
-  if(!results.length){inner.innerHTML='';empty.style.display='block';return;}
-  const escaped=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  inner.innerHTML=results.map(e=>buildMsg(e).replace(new RegExp(`(${escaped})`,'gi'),'<mark style="background:#fff176;border-radius:3px;padding:0 1px">$1</mark>')).join('');
-  results.forEach(e=>{if(rxnCache[e.id])renderRxn(e.id,rxnCache[e.id]);});
-}
-function clearSearch(){ document.getElementById('searchInput').value='';document.getElementById('searchClear').classList.remove('show'); document.getElementById('searchResults').style.display='none';document.getElementById('searchResultsInner').innerHTML=''; document.getElementById('searchEmpty').style.display='none';document.getElementById('feedWrap').style.display=''; document.getElementById('searchBar').classList.remove('open');document.getElementById('searchBtn').classList.remove('active'); }
-
-/* ── ADS ── */
+/* ── ADS (WITH HTML FULL SUPPORT) ── */
 async function loadAd(){
   try{ const r=await fetch(BACKEND+'/ad_get');const d=await r.json(); if(d.side&&(d.side.imageUrl||d.side.htmlUrl||d.side.htmlCode)){showAdSide(d.side);}else{hideAdSide();} if(d.popup&&(d.popup.imageUrl||d.popup.htmlUrl||d.popup.htmlCode)&&shouldShowAd()){showAdPopup(d.popup);} }catch(e){}
 }
@@ -893,6 +989,44 @@ async function deleteAd(type){
   try{ await fetch(BACKEND+'/ad_set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:me.email,imageUrl:'',linkUrl:'',displayType:type, timer:0})}); document.getElementById(imgEl).value='';document.getElementById(lnkEl).value=''; if(type==='side')hideAdSide();showAdMsg('הוסרה ✓','green'); }catch(e){}
 }
 function showAdMsg(txt,color){ const el=document.getElementById('adMsg');el.textContent=txt;el.style.color=color==='green'?'#16a34a':'#dc2626';el.style.display='block'; setTimeout(()=>el.style.display='none',2000); }
+
+
+/* ── ADMIN MANAGEMENT (RBAC) ── */
+function openManageAdmins() {
+    document.getElementById('manageAdminsModal').style.display = 'flex';
+    renderAdminsList();
+}
+function closeManageAdmins() { document.getElementById('manageAdminsModal').style.display = 'none'; }
+
+function renderAdminsList() {
+    const list = document.getElementById('adminsList');
+    let html = '';
+    Object.values(_allowedMap).forEach(u => {
+        html += `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:10px; border-radius:10px; border:1px solid #e5e7eb;">
+            <div>
+                <div style="font-weight:800; font-size:13px; color:#111;">${u.name} ${u.slug ? `<span style="color:#aaa;font-weight:400;">(${u.slug})</span>` : ''}</div>
+                <div style="font-size:11px; color:#666;">${u.role}</div>
+            </div>
+        </div>`;
+    });
+    list.innerHTML = html;
+}
+
+async function addAdmin() {
+    const email = document.getElementById('newAdminEmail').value.trim();
+    const name = document.getElementById('newAdminName').value.trim();
+    const slug = document.getElementById('newAdminSlug')?.value.trim();
+    const role = document.getElementById('newAdminRole')?.value;
+    
+    if(getRole() === 'supervisor' && role !== 'user') { alert('כאיש צוות פיקוח, באפשרותך להוסיף יוזרים (יוצרים) בלבד.'); return; }
+    if(!email || !name) return alert('חובה להזין אימייל ושם תצוגה');
+    
+    try {
+        const r = await fetch(BACKEND + '/allowed_add', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ admin_email: me.email, email, name, slug, role }) });
+        if((await r.json()).status === 'success') { document.getElementById('newAdminEmail').value = ''; document.getElementById('newAdminName').value = ''; document.getElementById('newAdminSlug').value = ''; await loadAllowedMap(); renderAdminsList(); }
+    } catch(e) { alert('שגיאה'); }
+}
 
 
 function tryInitGoogle() { if (window.google && window.google.accounts) { initGoogle(); } else { setTimeout(tryInitGoogle, 100); } }
