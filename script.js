@@ -1,3 +1,4 @@
+window._cardData = {}; 
 const BACKEND = 'https://hiphopruzbcrd.pythonanywhere.com';
 const GOOGLE_CLIENT_ID = '548333676754-ohvlnp1nfjpc1jnbkdfmr9hpccaj508i.apps.googleusercontent.com';
 const LOGO = 'https://i.ibb.co/pBvLbsG3/ed89a1453931.png';
