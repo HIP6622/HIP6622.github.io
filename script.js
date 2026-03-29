@@ -129,7 +129,50 @@ async function loadAllowedMap(){
     });
     _allowedMap[ADMIN_EMAIL.toLowerCase()]={name:'דוד',picture:me?.picture||'', role:'super'};
     renderChannels();
+    // תיקון RBAC: לאחר טעינת המפה נבנה מחדש את תפריט המשתמש עם ההרשאות הנכונות
+    if(me) refreshUserMenu();
   }catch(ex){}
+}
+
+// בונה מחדש את תפריט המשתמש לאחר שנטען _allowedMap (תיקון race condition של RBAC)
+function refreshUserMenu(){
+  if(!me) return;
+  const role = getRole();
+  const avatarHtml=me.picture?`<img src="${escAttr(me.picture)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid #1a56db;box-shadow:0 2px 6px rgba(0,0,0,0.1)">`:`<div style="width:34px;height:34px;border-radius:50%;background:#1a56db;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.1)">${esc(me.name[0].toUpperCase())}</div>`;
+  let adminMenuHtml = '';
+  if(role === 'super' || role === 'supervisor') {
+      adminMenuHtml += `
+        <div style="border-top:1px solid #e5e7eb; margin-top:8px; padding-top:8px;">
+          <div style="padding:0 14px 6px;font-size:11px;font-weight:800;color:#1a56db;text-transform:uppercase;letter-spacing:0.5px;">ניהול הערוץ</div>
+          <button onclick="openLeaderboard()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-chart-bar" style="color:#ea580c;width:16px;"></i> סטטיסטיקות</button>
+          <button onclick="openReportsModal()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-flag" style="color:#dc2626;width:16px;"></i> דיווחי משתמשים</button>
+          <button onclick="openManageAdmins()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-user-cog" style="color:#1a56db;width:16px;"></i> יוצרים וצוות</button>
+      `;
+  }
+  if(role === 'super') {
+      adminMenuHtml += `
+          <button onclick="openSiteSettings()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-tools" style="color:#7c3aed;width:16px;"></i> הגדרות וחסימות</button>
+          <button onclick="openWritePerms()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-pen" style="color:#059669;width:16px;"></i> הרשאות כתיבה</button>
+          <button onclick="openAdPanel()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-ad" style="color:#ca8a04;width:16px;"></i> פרסומות</button>
+          <button onclick="if(typeof openAdminMsgs==='function')openAdminMsgs()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-bullhorn" style="color:#e02020;width:16px;"></i> הודעות למנהלים</button>
+      `;
+  }
+  if(adminMenuHtml !== '') adminMenuHtml += '</div>';
+  const menu = document.getElementById('userMenu');
+  if(!menu) return;
+  menu.innerHTML = `
+    <div style="padding:16px 14px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f3f4f6;">
+      ${avatarHtml}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(me.name)}</div>
+        <div style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(me.email)}</div>
+        <div style="font-size:10px;font-weight:800;color:#1a56db;">${role}</div>
+      </div>
+    </div>
+    ${adminMenuHtml}
+    <div style="border-top:1px solid #e5e7eb; margin-top:4px; padding:4px 0;">
+      <button onclick="doLogout()" style="width:100%;padding:10px 16px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:700;color:#dc2626;display:flex;align-items:center;gap:10px;transition:background 0.2s;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'"><i class="fas fa-sign-out-alt" style="width:16px;"></i> התנתק</button>
+    </div>`;
 }
 
 function getDisplayName(email,fallback){
@@ -219,7 +262,7 @@ function applyLogin(){
   </div>`;
   
   const mailBtn = document.querySelector('a[title="פנייה למנהל"]');
-  if(mailBtn) { mailBtn.href = "mailto:0548537646a@gmail.com?subject=" + encodeURIComponent("בקשר לאתר בינה ודעה"); }
+  if(mailBtn) { mailBtn.href = "mailto:hip@hamakom.ovh?subject=" + encodeURIComponent("בקשר לאתר בינה ודעה"); }
 
   document.getElementById('loginScreen').style.display='none'; document.getElementById('app').style.display='flex'; document.getElementById('leftSidebar').style.display='flex';
   renderChannels();
@@ -1036,6 +1079,328 @@ async function deleteAd(type){
 }
 function showAdMsg(txt,color){ const el=document.getElementById('adMsg');el.textContent=txt;el.style.color=color==='green'?'#16a34a':'#dc2626';el.style.display='block'; setTimeout(()=>el.style.display='none',2000); }
 
+
+/* ══════════════════════════════════════════
+   צ'אט מנהלים — Admin Internal Chat
+   ══════════════════════════════════════════ */
+
+let _chatKnownIds = new Set();
+let _chatTypingUsers = {}; // email -> timestamp
+let _chatTypingTimer = null;
+
+async function loadAdminChat() {
+  try {
+    const r = await fetch(BACKEND + '/chat_get');
+    const d = await r.json();
+    if (d.status !== 'ok') return;
+    const msgs = d.chat || [];
+    const box = document.getElementById('chatMessages');
+    if (!box) return;
+    const newMsgs = msgs.filter(m => !_chatKnownIds.has(m.id));
+    if (!newMsgs.length) return;
+    const emptyMsg = document.getElementById('chatEmptyMsg');
+    if (emptyMsg) emptyMsg.style.display = 'none';
+    const wasAtBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 60;
+    newMsgs.forEach(m => {
+      _chatKnownIds.add(m.id);
+      const isMine = m.email === me?.email;
+      const av = (_allowedMap[m.email]?.picture || me?.picture)
+        ? `<img src="${escAttr(_allowedMap[m.email]?.picture || me.picture)}" class="chat-av">`
+        : `<div class="chat-av-i">${esc((m.name || '?')[0].toUpperCase())}</div>`;
+      const div = document.createElement('div');
+      div.className = 'chat-msg' + (isMine ? ' mine' : '');
+      div.innerHTML = `${!isMine ? av : ''}
+        <div class="chat-bubble-wrap">
+          ${!isMine ? `<div class="chat-sender">${esc(m.name || m.email)}</div>` : ''}
+          <div class="chat-bubble">${esc(m.text)}</div>
+          <div class="chat-time">${m.time || ''}</div>
+        </div>
+        ${isMine ? av : ''}`;
+      box.appendChild(div);
+    });
+    if (wasAtBottom) box.scrollTop = box.scrollHeight;
+    // עדכן תג הנוכחים
+    const presEl = document.getElementById('chatPresenceCount');
+    if (presEl) presEl.textContent = Math.max(1, Object.keys(_chatTypingUsers).length + 1);
+  } catch(e) {}
+}
+
+async function sendChatMsg() {
+  if (!me) return;
+  const inp = document.getElementById('chatInput');
+  const text = (inp?.value || '').trim();
+  if (!text) return;
+  inp.value = ''; inp.style.height = 'auto';
+  clearChatTyping();
+  try {
+    await fetch(BACKEND + '/chat_add', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ email: me.email, name: _allowedMap[me.email.toLowerCase()]?.name || me.name, text })
+    });
+    await loadAdminChat();
+  } catch(e) {}
+}
+
+function handleChatInputKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMsg(); }
+}
+
+// אינדיקטור הקלדה — שמור timestamp מקומי בלבד (אין route בשרת)
+function onChatType() {
+  _chatTypingUsers[me?.email] = Date.now();
+  clearTimeout(_chatTypingTimer);
+  _chatTypingTimer = setTimeout(clearChatTyping, 3000);
+  updateChatTypingBar();
+}
+
+function clearChatTyping() {
+  delete _chatTypingUsers[me?.email];
+  clearTimeout(_chatTypingTimer);
+  updateChatTypingBar();
+}
+
+function updateChatTypingBar() {
+  const bar = document.getElementById('chatTypingBar');
+  if (!bar) return;
+  const others = Object.entries(_chatTypingUsers)
+    .filter(([email, ts]) => email !== me?.email && Date.now() - ts < 4000)
+    .map(([email]) => _allowedMap[email]?.name || email.split('@')[0]);
+  if (others.length) {
+    bar.style.display = 'block';
+    bar.textContent = others.join(', ') + (others.length === 1 ? ' מקליד...' : ' מקלידים...');
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+// pollChatTyping — נקראת מ-setInterval, מנקה typing ישן
+function pollChatTyping() {
+  const now = Date.now();
+  Object.keys(_chatTypingUsers).forEach(email => {
+    if (now - _chatTypingUsers[email] > 4000) delete _chatTypingUsers[email];
+  });
+  updateChatTypingBar();
+}
+
+// pingChatPresence — אין route בשרת, מעדכן תג נוכחים בצד לקוח
+function pingChatPresence() {
+  const presEl = document.getElementById('chatPresenceCount');
+  if (presEl) {
+    const activeTypers = Object.values(_chatTypingUsers).filter(ts => Date.now() - ts < 5000).length;
+    presEl.textContent = Math.max(1, activeTypers + 1);
+  }
+}
+
+// checkChatMention — @mention dropdown בסיסי
+function checkChatMention(inp) {
+  const val = inp.value;
+  const atIdx = val.lastIndexOf('@');
+  const drop = document.getElementById('mentionDropdown');
+  if (!drop) return;
+  if (atIdx === -1 || val.length - atIdx > 15) { drop.innerHTML = ''; drop.style.display = 'none'; return; }
+  const query = val.slice(atIdx + 1).toLowerCase();
+  const matches = Object.values(_allowedMap).filter(u => (u.name || '').toLowerCase().includes(query)).slice(0, 5);
+  if (!matches.length) { drop.innerHTML = ''; drop.style.display = 'none'; return; }
+  drop.style.display = 'block';
+  drop.innerHTML = matches.map(u =>
+    `<div class="mention-item" onclick="insertMention('${escAttr(u.name || u.email)}')">
+       ${u.picture ? `<img src="${escAttr(u.picture)}" class="mention-av">` : `<div class="mention-av-i">${esc((u.name||'?')[0])}</div>`}
+       <span>${esc(u.name || u.email)}</span>
+     </div>`
+  ).join('');
+}
+
+function insertMention(name) {
+  const inp = document.getElementById('chatInput');
+  if (!inp) return;
+  const val = inp.value;
+  const atIdx = val.lastIndexOf('@');
+  inp.value = val.slice(0, atIdx) + '@' + name + ' ';
+  const drop = document.getElementById('mentionDropdown');
+  if (drop) { drop.innerHTML = ''; drop.style.display = 'none'; }
+  inp.focus();
+}
+
+/* ══════════════════════════════════════════
+   הודעות למנהלים — Admin Broadcast Messages
+   ══════════════════════════════════════════ */
+
+let _adminMsgsKnownIds = new Set();
+
+async function loadAdminMsgs() {
+  try {
+    const r = await fetch(BACKEND + '/admin_msgs_get');
+    const d = await r.json();
+    if (d.status !== 'ok') return;
+    const msgs = d.msgs || [];
+    const newMsgs = msgs.filter(m => !_adminMsgsKnownIds.has(m.id));
+    if (!newMsgs.length) return;
+    newMsgs.forEach(m => { _adminMsgsKnownIds.add(m.id); adminMsgsUnread++; });
+    // עדכן badge על כפתור הפעמון (אם קיים)
+    const badge = document.getElementById('adminMsgsBadge');
+    if (badge) { badge.textContent = adminMsgsUnread; badge.style.display = adminMsgsUnread > 0 ? 'flex' : 'none'; }
+    // עדכן תוכן ה-modal אם הוא פתוח
+    if (document.getElementById('adminMsgsModal')?.style.display === 'flex') renderAdminMsgs(msgs);
+  } catch(e) {}
+}
+
+function renderAdminMsgs(msgs) {
+  const body = document.getElementById('adminMsgsBody');
+  if (!body) return;
+  if (!msgs.length) { body.innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;font-size:13px;">אין הודעות</div>'; return; }
+  body.innerHTML = msgs.map(m => {
+    const isMine = m.email === me?.email;
+    return `<div style="background:${isMine?'#eff6ff':'#f9fafb'};border:1px solid ${isMine?'#bfdbfe':'#e5e7eb'};border-radius:12px;padding:10px 12px;margin-bottom:8px;">
+      <div style="font-size:11px;font-weight:800;color:${isMine?'#1a56db':'#374151'};margin-bottom:3px;">${esc(m.name||m.email)}</div>
+      <div style="font-size:13px;color:#111;line-height:1.5;">${esc(m.text)}</div>
+      <div style="font-size:10px;color:#9ca3af;margin-top:4px;">${m.time||''}</div>
+    </div>`;
+  }).join('');
+  body.scrollTop = body.scrollHeight;
+}
+
+async function openAdminMsgs() {
+  const modal = document.getElementById('adminMsgsModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  adminMsgsUnread = 0;
+  const badge = document.getElementById('adminMsgsBadge');
+  if (badge) badge.style.display = 'none';
+  // טעינה עדכנית מהשרת
+  try {
+    const r = await fetch(BACKEND + '/admin_msgs_get');
+    const d = await r.json();
+    if (d.status === 'ok') renderAdminMsgs(d.msgs || []);
+  } catch(e) {
+    const body = document.getElementById('adminMsgsBody');
+    if (body) body.innerHTML = '<div style="color:red;text-align:center;">שגיאה בטעינה</div>';
+  }
+  // הצג שורת שליחה רק ל-super
+  const sendRow = document.getElementById('adminMsgsSendRow');
+  if (sendRow) sendRow.style.display = isSuperAdmin() ? 'flex' : 'none';
+}
+
+function closeAdminMsgs() {
+  const modal = document.getElementById('adminMsgsModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function sendAdminMsg() {
+  if (!isSuperAdmin()) return;
+  const inp = document.getElementById('adminMsgInput');
+  const text = (inp?.value || '').trim();
+  if (!text) return;
+  inp.value = ''; inp.style.height = 'auto';
+  try {
+    const r = await fetch(BACKEND + '/admin_msgs_add', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ email: me.email, name: _allowedMap[me.email.toLowerCase()]?.name || me.name, text })
+    });
+    const d = await r.json();
+    if (d.status === 'ok') renderAdminMsgs(d.msgs || []);
+  } catch(e) {}
+}
+
+/* ══════════════════════════════════════════
+   ניהול יוצרים וצוות — Manage Admins Modal
+   ══════════════════════════════════════════ */
+
+async function openManageAdmins() {
+  document.getElementById('manageAdminsModal').style.display = 'flex';
+  document.getElementById('adminMsgResult').style.display = 'none';
+  await renderAdminsList();
+}
+
+function closeManageAdmins() {
+  document.getElementById('manageAdminsModal').style.display = 'none';
+}
+
+async function renderAdminsList() {
+  const list = document.getElementById('adminsList');
+  if (!list) return;
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;"><i class="fas fa-spinner fa-spin"></i> טוען...</div>';
+  try {
+    const r = await fetch(BACKEND + '/allowed_list');
+    const d = await r.json();
+    const users = (d.emails || []).filter(e => typeof e === 'object' && e.email);
+    if (!users.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;font-size:13px;">אין יוצרים/צוות עדיין</div>'; return; }
+    const myRole = getRole();
+    list.innerHTML = users.map(u => {
+      const pic = u.picture ? `<img src="${escAttr(u.picture)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">` : `<div style="width:36px;height:36px;border-radius:50%;background:#1a56db;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;">${esc((u.name||u.email||'?')[0].toUpperCase())}</div>`;
+      const roleLabel = { super:'בעל אתר', supervisor:'פיקוח', manager:'מנהל', user:'יוצר' }[u.role] || u.role;
+      const roleBadgeColor = { super:'#7c3aed', supervisor:'#dc2626', manager:'#1a56db', user:'#059669' }[u.role] || '#6b7280';
+      const canDelete = isSuperAdmin() && u.email !== ADMIN_EMAIL.toLowerCase();
+      const isMe = u.email === me?.email?.toLowerCase();
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:#f9fafb;border:1px solid #f0f0f0;">
+        ${pic}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(u.name||u.email)}${isMe?' <span style="font-size:10px;color:#aaa;">(אני)</span>':''}</div>
+          <div style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(u.email)}</div>
+          <div style="font-size:10px;font-weight:800;color:${roleBadgeColor};margin-top:2px;">${roleLabel}${u.slug?' · /'+esc(u.slug):''}</div>
+        </div>
+        ${canDelete ? `<button onclick="removeAdmin('${escAttr(u.email)}')" title="הסר מהצוות" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:5px 10px;cursor:pointer;color:#dc2626;font-size:11px;font-weight:700;font-family:'Heebo',sans-serif;flex-shrink:0;"><i class="fas fa-trash" style="font-size:10px;"></i></button>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="color:red;text-align:center;">שגיאה בטעינה</div>';
+  }
+}
+
+async function addAdmin() {
+  const email = document.getElementById('newAdminEmail')?.value.trim().toLowerCase();
+  const name = document.getElementById('newAdminName')?.value.trim();
+  const slug = document.getElementById('newAdminSlug')?.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  const role = document.getElementById('newAdminRole')?.value || 'user';
+  const msgEl = document.getElementById('adminMsgResult');
+  if (!email || !name) { showAdminMsg('יש למלא אימייל ושם', 'red'); return; }
+  if (!email.includes('@')) { showAdminMsg('אימייל לא תקין', 'red'); return; }
+  const myRole = getRole();
+  if (myRole === 'supervisor' && role !== 'user') { showAdminMsg('מפקח יכול להוסיף יוצרים בלבד', 'red'); return; }
+  try {
+    const r = await fetch(BACKEND + '/allowed_add', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ admin_email: me.email, email, name, slug, role })
+    });
+    const d = await r.json();
+    if (d.status === 'success') {
+      showAdminMsg('נוסף בהצלחה ✓', 'green');
+      document.getElementById('newAdminEmail').value = '';
+      document.getElementById('newAdminName').value = '';
+      document.getElementById('newAdminSlug').value = '';
+      document.getElementById('newAdminRole').value = 'user';
+      await loadAllowedMap();
+      await renderAdminsList();
+    } else {
+      showAdminMsg(d.error || 'שגיאה', 'red');
+    }
+  } catch(e) { showAdminMsg('שגיאת שרת', 'red'); }
+}
+
+async function removeAdmin(targetEmail) {
+  if (!isSuperAdmin()) return;
+  if (!confirm(`להסיר את ${targetEmail} מהצוות?`)) return;
+  try {
+    const r = await fetch(BACKEND + '/allowed_remove', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ admin_email: me.email, target_email: targetEmail })
+    });
+    const d = await r.json();
+    if (d.status === 'success') {
+      await loadAllowedMap();
+      await renderAdminsList();
+      showAdminMsg('הוסר בהצלחה', 'green');
+    } else { showAdminMsg(d.error || 'שגיאה', 'red'); }
+  } catch(e) { showAdminMsg('שגיאת שרת', 'red'); }
+}
+
+function showAdminMsg(txt, color) {
+  const el = document.getElementById('adminMsgResult');
+  if (!el) return;
+  el.textContent = txt;
+  el.style.color = color === 'green' ? '#16a34a' : '#dc2626';
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
 
 function tryInitGoogle() { if (window.google && window.google.accounts) { initGoogle(); } else { setTimeout(tryInitGoogle, 100); } }
 tryInitGoogle();
