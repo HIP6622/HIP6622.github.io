@@ -265,23 +265,48 @@ async function loadAdminUsers(){
   }catch(e){}
 }
 
-function initGoogle(){
-  if(!window.google) return;
-  google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleLogin,auto_select:true});
-  const saved=loadSavedUser(); if(saved){verifyAndLogin(saved);return;}
-  initGlobalSettings();
-  google.accounts.id.renderButton(document.getElementById('googleBtn'),{theme:'outline',size:'large',locale:'he',width:240});
-  google.accounts.id.prompt();
-}
+async function handleLogin(resp) {
+  let payload = {};
+  try {
+    // פיענוח בטוח של הנתונים מגוגל (JWT)
+    const base64Url = resp.credential.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    
+    // הוספת Padding במידה וחסר (קריטי למניעת שגיאות atob)
+    const pad = base64.length % 4;
+    const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
 
-async function handleLogin(resp){
-  let payload={};
-  try{const parts=resp.credential.split('.');if(parts.length!==3)throw new Error('invalid');payload=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));}catch(e){return;}
-  const email=(payload.email||'').toLowerCase(); if(!email||!email.includes('@'))return;
-  const picture=payload.picture||''; let displayName='';
-  try{const lr=await fetch(BACKEND+'/allowed_list');const ld=await lr.json();const myEntry=(ld.emails||[]).find(e=>typeof e==='object'&&e.email===email);if(myEntry&&myEntry.name&&!myEntry.name.includes('×—')&&myEntry.name!==email)displayName=myEntry.name;}catch(e){}
-  if(!displayName||displayName.includes('×—'))displayName=email.split('@')[0];
-  await verifyAndLogin({email,name:displayName,picture});
+    // פענוח שתומך בתווים בעברית (UTF-8)
+    const jsonPayload = decodeURIComponent(window.atob(paddedBase64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+
+    payload = JSON.parse(jsonPayload);
+  } catch (e) {
+    console.error("שגיאה בפענוח נתוני גוגל:", e);
+    alert("חלה שגיאה טכנית בהתחברות. נסה שוב.");
+    return;
+  }
+
+  const email = (payload.email || '').toLowerCase();
+  if (!email || !email.includes('@')) return;
+
+  const picture = payload.picture || '';
+  let displayName = '';
+
+  // בדיקה מול רשימת המורשים כדי למשוך שם מותאם אישית
+  try {
+    const lr = await fetch(BACKEND + '/allowed_list');
+    const ld = await lr.json();
+    const myEntry = (ld.emails || []).find(e => typeof e === 'object' && e.email === email);
+    if (myEntry && myEntry.name && !myEntry.name.includes('×—') && myEntry.name !== email) {
+      displayName = myEntry.name;
+    }
+  } catch (e) {}
+
+  if (!displayName || displayName.includes('×—')) displayName = payload.name || email.split('@')[0];
+
+  await verifyAndLogin({ email, name: displayName, picture });
 }
 
 // תמיכה ב-RGB ובטקסט מודגש/נטוי
