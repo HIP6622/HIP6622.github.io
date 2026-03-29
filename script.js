@@ -1613,11 +1613,16 @@ function showAdminMsg(txt, color) {
   setTimeout(() => el.style.display = 'none', 3000);
 }
 
-function tryInitGoogle() { if (window.google && window.google.accounts) { initGoogle(); } else { setTimeout(tryInitGoogle, 100); } }
-window.onload = initGoogle;
-setInterval(pollAll,3000);
+function tryInitGoogle() {
+    if (window.google && window.google.accounts) {
+        initGoogle();
+    } else {
+        setTimeout(tryInitGoogle, 100);
+    }
+}
 
-
+window.onload = tryInitGoogle;
+setInterval(pollAll, 3000);
 function updateEmailCountBadge(count) {
   const badge = document.getElementById('hdrEmailCountBadge');
   if(!badge) return;
