@@ -1112,10 +1112,10 @@ let _chatTypingTimer = null;
 async function loadAdminChat(){
   if(!isAdmin()) return;
   try{
-    const r=await fetch(BACKEND+'/chat_messages?t=' + Date.now());
+    const r=await fetch(BACKEND+'/chat_get?t=' + Date.now());
     const d=await r.json();
-    if(d.status!=='success') return;
-    const msgs=d.messages||[];
+    if(d.status!=='ok') return;
+    const msgs=d.chat||[];
     const sig=msgs.map(m=>m.id).join(',');
     if(sig===chatLastIds) return;
     const hadMsgs=chatLastIds!=='';
@@ -1279,7 +1279,7 @@ async function sendChatMsg(){
   clearTimeout(_chatTypingTimer);
   fetch(BACKEND+'/typing_stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:me.email})}).catch(()=>{});
   try{
-    await fetch(BACKEND+'/chat_send',{method:'POST',headers:{'Content-Type':'application/json'},
+    await fetch(BACKEND+'/chat_add',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({sender:getDisplayName(me.email,me.name),text,picture:me.picture,email:me.email,clientTime,clientDate,clientTs:now.getTime()})});
     chatLastIds=''; loadAdminChat();
   }catch(e){}
