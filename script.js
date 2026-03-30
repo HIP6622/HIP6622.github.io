@@ -62,16 +62,9 @@ let CHANNELS = [
 
 function renderChannels() {
   const list = document.getElementById('channelsList'); if(!list) return;
-  let html = CHANNELS.map(ch => `<div class="channel-item ${ch.id === currentChannelId ? 'active' : ''}" onclick="switchChannel('${ch.id}', '${ch.name}')"><i class="fas ${ch.icon}"></i> ${ch.name}</div>`).join('');
+  list.innerHTML = CHANNELS.map(ch => `<div class="channel-item ${ch.id === currentChannelId ? 'active' : ''}" onclick="switchChannel('${ch.id}', '${ch.name}')"><i class="fas ${ch.icon}"></i> ${ch.name}</div>`).join('');
   
-  const creators = Object.values(_allowedMap).filter(u => u.slug);
-  if(creators.length > 0) {
-      html += `<div style="padding:10px 15px; font-size:11px; font-weight:800; color:#aaa; background:#fafafa; border-top:1px solid #f0f0f0;">לפי יוצרים (פיד אישי)</div>`;
-      html += creators.map(c => `<div class="channel-item ${c.slug === currentChannelId ? 'active' : ''}" onclick="switchChannel('${c.slug}', 'הפיד של ${c.name}')"><i class="fas fa-user-edit"></i> ${c.name}</div>`).join('');
-  }
-  
-  list.innerHTML = html;
-  const currentName = CHANNELS.find(c=>c.id===currentChannelId)?.name || creators.find(c=>c.slug===currentChannelId)?.name || 'כללי';
+  const currentName = CHANNELS.find(c=>c.id===currentChannelId)?.name || 'כללי';
   const hdrName = document.getElementById('hdrChannelName');
   if (hdrName) hdrName.innerHTML = `${esc(siteGlobalSettings.title)} - <span style="color:#1a56db">${currentName}</span>`;
 }
@@ -94,15 +87,12 @@ function escAttr(t){return esc(t).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 function isSuperAdmin(){return SUPER_ADMINS.includes(me?.email?.toLowerCase());}
 
+// לוגיקת הדרגות החדשה והפשוטה
 function getRole() {
     if(!me) return 'visitor';
     if(isSuperAdmin()) return 'super';
-    return _allowedMap[me.email.toLowerCase()]?.role || 'visitor';
-}
-
-function isAdmin(){
-    const role = getRole();
-    return role === 'super' || role === 'manager';
+    if(_allowedMap[me.email.toLowerCase()]) return 'writer';
+    return 'user';
 }
 
 async function checkAllowedAdmin(){
@@ -110,7 +100,7 @@ async function checkAllowedAdmin(){
   await loadAllowedMap();
   const role = getRole();
   
-  if(isAdmin()) {
+  if(role === 'super' || role === 'writer') {
       document.getElementById('rightSidebar').classList.add('show');
       document.getElementById('adminChatPanel').classList.add('show');
       
@@ -135,29 +125,11 @@ function applyWritePerm(){
   if(!bar) return;
   
   const role = getRole();
-  const myEmail = me?.email?.toLowerCase();
-  const mySlug = _allowedMap[myEmail]?.slug;
-  
-  let canWrite = false;
-  if (role === 'super' || role === 'manager') {
-      canWrite = true;
-  } else if (role === 'user' && mySlug && currentChannelId === mySlug) {
-      canWrite = true;
-  }
 
-  // הצגת שורת הניהול/כתיבה למי שמוגדר במערכת במשהו (יוצר או מנהל)
-  if (role === 'super' || role === 'manager' || mySlug) {
+  if (role === 'super' || role === 'writer') {
       bar.classList.add('show');
-      if (canWrite) {
-          bar.classList.remove('blocked');
-          if(notice) notice.classList.remove('show');
-      } else {
-          bar.classList.add('blocked');
-          if(notice) {
-              notice.classList.add('show');
-              notice.innerText = 'אין לך הרשאת כתיבה בערוץ זה';
-          }
-      }
+      bar.classList.remove('blocked');
+      if(notice) notice.classList.remove('show');
   } else {
       bar.classList.remove('show');
   }
@@ -170,7 +142,7 @@ async function loadAllowedMap(){
     _allowedMap={};
     (d.emails||[]).forEach(e=>{
       if(typeof e==='object'&&e.email){
-        _allowedMap[e.email.toLowerCase()]={name:e.name||e.email.split('@')[0], picture:e.picture||'', slug:e.slug||'', role:e.role||'user'};
+        _allowedMap[e.email.toLowerCase()]={name:e.name||e.email.split('@')[0], picture:e.picture||''};
       }
     });
     renderChannels();
@@ -184,20 +156,20 @@ function refreshUserMenu(){
   const avatarHtml=me.picture?`<img src="${escAttr(me.picture)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid #1a56db;box-shadow:0 2px 6px rgba(0,0,0,0.1)">`:`<div style="width:34px;height:34px;border-radius:50%;background:#1a56db;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.1)">${esc(me.name[0].toUpperCase())}</div>`;
   let adminMenuHtml = '';
   
-  if(isAdmin()) {
+  if(role === 'super' || role === 'writer') {
       adminMenuHtml += `
         <div style="border-top:1px solid #e5e7eb; margin-top:8px; padding-top:8px;">
-          <div style="padding:0 14px 6px;font-size:11px;font-weight:800;color:#1a56db;text-transform:uppercase;letter-spacing:0.5px;">ניהול מערכת</div>
+          <div style="padding:0 14px 6px;font-size:11px;font-weight:800;color:#1a56db;text-transform:uppercase;letter-spacing:0.5px;">${role === 'super' ? 'ניהול מערכת' : 'אזור צוות'}</div>
           <button onclick="openLeaderboard()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-chart-bar" style="color:#ea580c;width:16px;"></i> סטטיסטיקות</button>
-          <button onclick="openReportsModal()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-flag" style="color:#dc2626;width:16px;"></i> דיווחי משתמשים</button>
       `;
   }
   if(role === 'super') {
       adminMenuHtml += `
-          <button onclick="openManageAdmins()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-user-cog" style="color:#1a56db;width:16px;"></i> יוצרים וצוות</button>
+          <button onclick="openReportsModal()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-flag" style="color:#dc2626;width:16px;"></i> דיווחי משתמשים</button>
+          <button onclick="openManageAdmins()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-user-cog" style="color:#1a56db;width:16px;"></i> מורשי כתיבה</button>
           <button onclick="openSiteSettings()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-tools" style="color:#7c3aed;width:16px;"></i> הגדרות וחסימות</button>
           <button onclick="openAdPanel()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-ad" style="color:#ca8a04;width:16px;"></i> פרסומות</button>
-          <button onclick="if(typeof openAdminMsgs==='function')openAdminMsgs()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-bullhorn" style="color:#e02020;width:16px;"></i> הודעות למנהלים</button>
+          <button onclick="if(typeof openAdminMsgs==='function')openAdminMsgs()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-bullhorn" style="color:#e02020;width:16px;"></i> הודעות לצוות</button>
       `;
   }
   if(adminMenuHtml !== '') adminMenuHtml += '</div>';
@@ -209,7 +181,7 @@ function refreshUserMenu(){
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(me.name)}</div>
         <div style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(me.email)}</div>
-        <div style="font-size:10px;font-weight:800;color:#1a56db;">${role === 'super' ? 'מנהל ראשי' : role === 'manager' ? 'מנהל' : 'יוצר'}</div>
+        <div style="font-size:10px;font-weight:800;color:#1a56db;">${role === 'super' ? 'מנהל ראשי' : role === 'writer' ? 'מורשה כתיבה' : 'משתמש'}</div>
       </div>
     </div>
     ${adminMenuHtml}
@@ -355,7 +327,7 @@ function rich(t){
 function buildMsg(e){
   const id=e.id; 
   const role = getRole();
-  const canDel = isSuperAdmin() || role === 'manager' || (role === 'user' && e.senderEmail === me?.email);
+  const canDel = role === 'super' || (role === 'writer' && e.senderEmail === me?.email);
   
   let content=`<div class="bubble-text">${rich(e.text||'')}</div>`;
   let media='';
@@ -388,7 +360,7 @@ function buildMsg(e){
   }
   
   const n=cmtCount[id]||0;
-  return `<div class="msg-row" data-id="${escAttr(id)}"><img class="msg-av" src="${LOGO}" onerror="this.style.display='none'"><div class="msg-col"><div class="msg-meta"><span class="msg-meta-name">${esc(siteGlobalSettings.title)}</span><span class="msg-meta-time">${e.time||''}</span>${e.edited?'<span class="msg-meta-edited">נערכה</span>':''}<span class="msg-meta-sender">${esc(e.sender)}</span></div><div class="bubble-wrap-outer"><div class="bubble-top-actions"><button class="link-btn" onclick="copyMsgLink('${escAttr(id)}',this)" title="העתק קישור"><i class="fas fa-link"></i></button><button class="cmt-btn${n>0?' has-cmt':''}" id="cbtn-${escAttr(id)}" onclick="openComments('${escAttr(id)}')"><i class="fas fa-comment"></i>${n>0?`<span style="font-size:9px;font-weight:800;margin-right:2px">${n}</span>`:''}</button><button class="msg-action-btn" onclick="reportMsg('${escAttr(id)}')" title="דווח על תוכן פוגעני"><i class="fas fa-flag"></i></button>${isAdmin()||(role==='user'&&e.senderEmail===me?.email)?`<button class="msg-action-btn edit" onclick="openEditMsg('${escAttr(id)}')"><i class="fas fa-pen"></i></button><button class="msg-action-btn quote" onclick="quoteFeedMsg('${escAttr(id)}')"><i class="fas fa-quote-right"></i></button>`:''}${canDel?`<button class="msg-action-btn del" onclick="deleteFeedMsg('${escAttr(id)}')"><i class="fas fa-trash"></i></button>`:''}</div><div class="bubble">${quoteHtml}${content}${media}${btns}${tagsHtml}</div></div><div class="bubble-foot"><div class="rxn-row" id="rxn-${escAttr(id)}"><button class="rxn-add-btn" onclick="openPicker(event,'${escAttr(id)}')">${REACT_SVG}</button></div></div></div></div>`;
+  return `<div class="msg-row" data-id="${escAttr(id)}"><img class="msg-av" src="${LOGO}" onerror="this.style.display='none'"><div class="msg-col"><div class="msg-meta"><span class="msg-meta-name">${esc(siteGlobalSettings.title)}</span><span class="msg-meta-time">${e.time||''}</span>${e.edited?'<span class="msg-meta-edited">נערכה</span>':''}<span class="msg-meta-sender">${esc(e.sender)}</span></div><div class="bubble-wrap-outer"><div class="bubble-top-actions"><button class="link-btn" onclick="copyMsgLink('${escAttr(id)}',this)" title="העתק קישור"><i class="fas fa-link"></i></button><button class="cmt-btn${n>0?' has-cmt':''}" id="cbtn-${escAttr(id)}" onclick="openComments('${escAttr(id)}')"><i class="fas fa-comment"></i>${n>0?`<span style="font-size:9px;font-weight:800;margin-right:2px">${n}</span>`:''}</button><button class="msg-action-btn" onclick="reportMsg('${escAttr(id)}')" title="דווח על תוכן פוגעני"><i class="fas fa-flag"></i></button>${role==='super'||(role==='writer'&&e.senderEmail===me?.email)?`<button class="msg-action-btn edit" onclick="openEditMsg('${escAttr(id)}')"><i class="fas fa-pen"></i></button><button class="msg-action-btn quote" onclick="quoteFeedMsg('${escAttr(id)}')"><i class="fas fa-quote-right"></i></button>`:''}${canDel?`<button class="msg-action-btn del" onclick="deleteFeedMsg('${escAttr(id)}')"><i class="fas fa-trash"></i></button>`:''}</div><div class="bubble">${quoteHtml}${content}${media}${btns}${tagsHtml}</div></div><div class="bubble-foot"><div class="rxn-row" id="rxn-${escAttr(id)}"><button class="rxn-add-btn" onclick="openPicker(event,'${escAttr(id)}')">${REACT_SVG}</button></div></div></div></div>`;
 }
 
 function copyMsgLink(id, btn){
@@ -468,7 +440,7 @@ async function deleteFeedMsg(id){
 
 function quoteFeedMsg(id){
   const role = getRole();
-  if(role !== 'super' && role !== 'manager' && role !== 'user') return;
+  if(role !== 'super' && role !== 'writer') return;
   const entry=items.find(e=>e.id===id);
   if(!entry) return;
   const ed=document.getElementById('composeEditor');
@@ -765,7 +737,7 @@ function isUntilExpired(until){
 }
 
 async function pollUpdateMode(){
-  if(!isAdmin())return;
+  if(getRole() !== 'super' && getRole() !== 'writer') return;
   try{
     const r=await fetch(BACKEND+'/update_mode_get?t='+Date.now()); const d=await r.json();
     const hdrBtn=document.getElementById('updateModeHdrBtn'); if(hdrBtn)hdrBtn.style.display='inline-flex';
@@ -952,13 +924,8 @@ function clearSearch(){
 }
 
 async function sendFeedPost(){
-  if(!me) return;
   const role = getRole();
-  const myEmail = me.email.toLowerCase();
-  const mySlug = _allowedMap[myEmail]?.slug;
-  
-  const canWrite = (role === 'super' || role === 'manager' || (role === 'user' && mySlug && currentChannelId === mySlug));
-  if(!canWrite){alert('אין לך הרשאת כתיבה בערוץ זה');return;}
+  if(role !== 'super' && role !== 'writer'){alert('אין לך הרשאת כתיבה');return;}
   
   const ed=document.getElementById('composeEditor'); 
   const editorText = editorToMarkdown(ed).trim();
@@ -981,7 +948,7 @@ async function sendFeedPost(){
 let _editMsgId=null;
 function openEditMsg(id){
   const role = getRole();
-  if(role !== 'super' && role !== 'manager' && role !== 'user') return; 
+  if(role !== 'super' && role !== 'writer') return; 
   const e=items.find(i=>i.id===id); if(!e)return; _editMsgId=id;
   const ed=document.getElementById('composeEditor'); ed.innerHTML=e.text||'';
   composeImgUrl=e.imgUrl||''; composeVidUrl=e.videoUrl||''; composeHtmlCode=e.htmlCode||''; composeBtns=(e.buttons||[]).map(b=>({text:b.text,url:b.url}));
@@ -1045,7 +1012,7 @@ function showAdSide(ad){
   const img=document.getElementById('adSidebarImg'); const link=document.getElementById('adSidebarLink'); const frame=document.getElementById('adSidebarFrame');
   if(ad.htmlCode||ad.htmlUrl){ if(img)img.style.display='none'; if(link)link.style.display='none'; if(frame){ if(ad.htmlCode){frame.srcdoc=ad.htmlCode;} else if(ad.htmlUrl){frame.src=ad.htmlUrl;} frame.style.display='block'; } }
   else { if(frame){frame.style.display='none';frame.src='';} if(img){img.src=ad.imageUrl||'';img.style.display='block';} if(link)link.href=ad.linkUrl||'#'; }
-  if(isAdmin()){
+  if(getRole() === 'super' || getRole() === 'writer'){
     const adInChat=document.getElementById('adInChat'); const adFrame=document.getElementById('adInChatFrame'); const adImg=document.getElementById('adInChatImg'); const adLink=document.getElementById('adInChatLink');
     if(adInChat){
       if(ad.htmlCode||ad.htmlUrl){ if(adFrame){ if(ad.htmlCode)adFrame.srcdoc=ad.htmlCode; else adFrame.src=ad.htmlUrl; adFrame.style.display='block'; } if(adLink)adLink.style.display='none'; }
@@ -1110,7 +1077,7 @@ function renderChatText(t){
 let _chatTypingTimer = null;
 
 async function loadAdminChat(){
-  if(!isAdmin()) return;
+  if(getRole() !== 'super' && getRole() !== 'writer') return;
   try{
     const r=await fetch(BACKEND+'/chat_get?t=' + Date.now());
     const d=await r.json();
@@ -1202,7 +1169,7 @@ let _ctxMsgId=null;
 function showChatCtx(ev,msg,isMe){
   ev.stopPropagation();
   _ctxMsgId=msg.id;
-const menu=document.getElementById('chatCtxMenu');
+  const menu=document.getElementById('chatCtxMenu');
   if(!menu) return;
   const canDel=isMe||isSuperAdmin();
   menu.innerHTML=
@@ -1245,7 +1212,7 @@ function onChatType(){
 }
 
 async function pollChatTyping(){
-  if(!isAdmin()) return;
+  if(getRole() !== 'super' && getRole() !== 'writer') return;
   try{
     const r=await fetch(BACKEND+'/typing_status');
     const d=await r.json();
@@ -1289,7 +1256,6 @@ function handleChatInputKey(e){
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); sendChatMsg();}
 }
 
-// checkChatMention — @mention dropdown בסיסי
 function checkChatMention(inp) {
   const val = inp.value;
   const atIdx = val.lastIndexOf('@');
@@ -1318,10 +1284,6 @@ function insertMention(name) {
   if (drop) { drop.innerHTML = ''; drop.style.display = 'none'; }
   inp.focus();
 }
-
-/* ══════════════════════════════════════════
-   הודעות למנהלים — Admin Broadcast Messages
-   ══════════════════════════════════════════ */
 
 let _adminMsgsKnownIds = new Set();
 
@@ -1421,18 +1383,22 @@ async function renderAdminsList() {
     
     list.innerHTML = users.map(u => {
       const pic = u.picture ? `<img src="${escAttr(u.picture)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">` : `<div style="width:36px;height:36px;border-radius:50%;background:#1a56db;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;">${esc((u.name||u.email||'?')[0].toUpperCase())}</div>`;
-      const roleLabel = { super:'בעל אתר', manager:'מנהל', user:'יוצר' }[u.role] || 'יוצר';
-      const roleBadgeColor = { super:'#7c3aed', manager:'#1a56db', user:'#059669' }[u.role] || '#6b7280';
-      const canDelete = isSuperAdmin() && u.email !== ADMIN_EMAIL.toLowerCase();
+      
+      // תווית פשוטה: או שזה אתה (הבוס), או שהוא כותב מורשה.
+      const isBoss = u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      const roleLabel = isBoss ? 'בעל האתר' : 'מורשה כתיבה';
+      const roleBadgeColor = isBoss ? '#7c3aed' : '#059669';
+      
+      const canDelete = isSuperAdmin() && !isBoss;
       const isMe = u.email === me?.email?.toLowerCase();
       return `<div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:#f9fafb;border:1px solid #f0f0f0;">
         ${pic}
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(u.name||u.email)}${isMe?' <span style="font-size:10px;color:#aaa;">(אני)</span>':''}</div>
           <div style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(u.email)}</div>
-          <div style="font-size:10px;font-weight:800;color:${roleBadgeColor};margin-top:2px;">${roleLabel}${u.slug?' · /'+esc(u.slug):''}</div>
+          <div style="font-size:10px;font-weight:800;color:${roleBadgeColor};margin-top:2px;">${roleLabel}</div>
         </div>
-        ${canDelete ? `<button onclick="removeAdmin('${escAttr(u.email)}')" title="הסר מהצוות" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:5px 10px;cursor:pointer;color:#dc2626;font-size:11px;font-weight:700;font-family:'Heebo',sans-serif;flex-shrink:0;"><i class="fas fa-trash" style="font-size:10px;"></i></button>` : ''}
+        ${canDelete ? `<button onclick="removeAdmin('${escAttr(u.email)}')" title="הסר הרשאה" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:5px 10px;cursor:pointer;color:#dc2626;font-size:11px;font-weight:700;font-family:'Heebo',sans-serif;flex-shrink:0;"><i class="fas fa-trash" style="font-size:10px;"></i></button>` : ''}
       </div>`;
     }).join('');
   } catch(e) {
@@ -1443,22 +1409,18 @@ async function renderAdminsList() {
 async function addAdmin() {
   const email = document.getElementById('newAdminEmail')?.value.trim().toLowerCase();
   const name = document.getElementById('newAdminName')?.value.trim();
-  const slug = document.getElementById('newAdminSlug')?.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-  const role = document.getElementById('newAdminRole')?.value || 'user';
   if (!email || !name) { showAdminMsg('יש למלא אימייל ושם', 'red'); return; }
   if (!email.includes('@')) { showAdminMsg('אימייל לא תקין', 'red'); return; }
   try {
     const r = await fetch(BACKEND + '/allowed_add', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ admin_email: me.email, email, name, slug, role })
+      body: JSON.stringify({ admin_email: me.email, email, name, slug: '', role: 'writer' })
     });
     const d = await r.json();
     if (d.status === 'success') {
       showAdminMsg('נוסף בהצלחה ✓', 'green');
       document.getElementById('newAdminEmail').value = '';
       document.getElementById('newAdminName').value = '';
-      document.getElementById('newAdminSlug').value = '';
-      document.getElementById('newAdminRole').value = 'user';
       await loadAllowedMap();
       await renderAdminsList();
     } else {
@@ -1469,7 +1431,7 @@ async function addAdmin() {
 
 async function removeAdmin(targetEmail) {
   if (!isSuperAdmin()) return;
-  if (!confirm(`להסיר את ${targetEmail} מהצוות?`)) return;
+  if (!confirm(`להסיר את הרשאת הכתיבה של ${targetEmail}?`)) return;
   try {
     const r = await fetch(BACKEND + '/allowed_remove', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1525,7 +1487,6 @@ function tryInitGoogle() {
 
 setInterval(pollAll, 3000);
 
-// כי script.js נטען עם defer, ה-load event כבר ירה — קוראים ישירות
 if (document.readyState === 'complete') {
   tryInitGoogle();
 } else {
