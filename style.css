@@ -178,7 +178,6 @@ header{ background:#fff;border-bottom:1px solid rgba(0,0,0,.08); height:56px;pad
 .bubble-vid video.portrait{width:auto;max-width:100%;max-height:480px;display:block;margin:0 auto;}
 .bubble-vid iframe{max-width:100%;border-radius:12px;}
 
-/* תיקון עיצוב להטמעת HTML - מתאים גם לצר וגם לרחב */
 .bubble-html{margin-top:9px; border-radius:12px; overflow:hidden; width:100%; max-width:100%; background:#fff; position:relative;}
 .bubble-html iframe{width:100%; border:none; display:block; min-height:200px; resize:vertical; overflow:auto;}
 
@@ -188,7 +187,7 @@ header{ background:#fff;border-bottom:1px solid rgba(0,0,0,.08); height:56px;pad
 .lnk-btn{display:inline-flex;align-items:center;gap:5px;background:#f3f4f6;border-radius:99px;padding:6px 13px;font-size:13px;font-weight:600;color:#374151;text-decoration:none;border:none;}
 .bubble-foot{display:flex;align-items:center;gap:5px;margin-top:2px;flex-wrap:wrap;padding-right:10px;}
 
-/* תגיות (תוויות) */
+/* תגיות */
 .post-tags-row { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
 .post-tag { display:inline-flex; align-items:center; background:#f3f4f6; color:#4b5563; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; transition:background 0.2s; border:1px solid transparent; }
 .post-tag:hover { background:#e5e7eb; border-color:#d1d5db; color:#111; }
@@ -230,9 +229,9 @@ header{ background:#fff;border-bottom:1px solid rgba(0,0,0,.08); height:56px;pad
 .msg-meta-edited{font-size:10px;color:#9ca3af;font-style:italic;font-weight:500;}
 
 /* Quote block */
-.quote-block{ display:flex;align-items:flex-start;gap:6px; background:#f3f4f6;border-radius:8px; padding:7px 10px;margin-bottom:8px; cursor:pointer;transition:background .12s; border-right:3px solid #9ca3af;}
-.quote-block:hover{background:#e5e7eb;}
-.quote-block i{margin-top:1px;flex-shrink:0;}
+.quote-block{ display:flex;align-items:flex-start;gap:6px; background: linear-gradient(135deg,#f0f6ff,#f8faff);border-radius:8px; padding:7px 10px;margin-bottom:8px; cursor:pointer;transition:background .12s; border-right:3px solid #1a56db;}
+.quote-block:hover{background:#e8f0fe;}
+.quote-block i{margin-top:1px;flex-shrink:0;color:#1a56db;}
 .quote-block-text{ font-size:13px;color:#6b7280;font-style:italic; line-height:1.5;flex:1;}
 
 /* EMOJI PICKER */
@@ -323,21 +322,6 @@ body.dark #userMenu { background: #1a1a2e; border-color: #333; }
 #updateModeNotice.show{display:inline-flex;}
 #adminMsgsBtn .unread-badge{position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:#e02020;border:2px solid #fff;display:none;}
 #adminMsgsBtn .unread-badge.show{display:block;}
-
-/* DARK MODE - נשאר תקין כבקשתך */
-body.dark{background:#0f0f15;color:#e5e7eb;}
-body.dark header{background:#1a1a2e;border-color:#2a2a40;}
-body.dark .bubble{background:#1e1e30;color:#e5e7eb;}
-body.dark .bubble.is-red{background:#2a1010;border-color:#e02020;}
-body.dark .bubble-text{color:#d1d5db;font-weight:400;}
-body.dark .bubble-headline{color:#fff;}
-body.dark .msg-meta-name{color:#aaa;}
-body.dark .msg-meta-time{color:#666;}
-body.dark #feedWrap{background:#0f0f15;}
-body.dark .hdr-name{color:#fff;}
-/* תגיות במצב לילה */
-body.dark .post-tag { background: #374151; color: #d1d5db; }
-body.dark .post-tag:hover { background: #4b5563; color: #fff; }
 
 /* SEARCH */
 #searchBar{position:absolute;top:50%;left:100%;margin-left:6px;transform:translateY(-50%);background:#fff;border:1.5px solid #e5e7eb;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.12);display:none;align-items:center;gap:6px;padding:5px 10px 5px 8px;z-index:200;width:300px;white-space:nowrap;animation:searchPop .15s ease-out;}
@@ -435,6 +419,7 @@ body.has-compose #scrollDownBtn{bottom:calc(var(--compose-h,120px) + 16px);}
 #empty{display:none;text-align:center;padding:60px 20px;color:#aaa;}
 #empty i{font-size:36px;opacity:.2;margin-bottom:10px;display:block;}
 
+/* LIGHTBOX */
 #lightbox{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;cursor:zoom-out;animation:lbIn .18s ease;}
 @keyframes lbIn{from{opacity:0}to{opacity:1}}
 #lightbox.show{display:flex;}
@@ -459,7 +444,6 @@ body.has-compose #scrollDownBtn{bottom:calc(var(--compose-h,120px) + 16px);}
 .admin-msg-time{font-size:10px;color:#aaa;margin-right:auto;}
 .admin-msg-text{font-size:13px;line-height:1.6;color:#374151;white-space:pre-wrap;}
 .admin-msgs-send{padding:12px 16px;border-top:1px solid #f0f0f0;display:none;gap:8px;align-items:flex-end;flex-shrink:0;}
-.admin-msgs-send.show{display:flex;}
 .admin-send-inp{flex:1;border:1.5px solid #e5e7eb;border-radius:12px;padding:8px 12px;font-size:13px;font-family:'Heebo',sans-serif;resize:none;outline:none;max-height:80px;line-height:1.5;direction:rtl;}
 .admin-send-inp:focus{border-color:#93c5fd;}
 .admin-send-btn{background:#1a56db;color:#fff;border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
@@ -476,7 +460,7 @@ body.has-compose #scrollDownBtn{bottom:calc(var(--compose-h,120px) + 16px);}
 .ss-input{width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:8px;font-family:'Heebo';font-size:13px;}
 .ss-btn{background:#1a56db;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Heebo';margin-top:8px;}
 
-/* עיצוב סטטיסטיקות (Leaderboard) */
+/* LEADERBOARD (סטטיסטיקות) */
 .lb-tab { background:#fff; border:1px solid #d1d5db; padding:6px 14px; border-radius:99px; font-family:'Heebo'; font-weight:700; color:#4b5563; cursor:pointer; transition:all 0.2s; }
 .lb-tab:hover { background:#f3f4f6; }
 .lb-tab.active { background:#1a56db; color:#fff; border-color:#1a56db; }
@@ -507,48 +491,18 @@ body.has-compose #scrollDownBtn{bottom:calc(var(--compose-h,120px) + 16px);}
 .lb-stats { display:flex; gap:15px; font-size:12px; font-weight:700; color:#4b5563; }
 .lb-stat-badge { background:#eff6ff; color:#1a56db; padding:4px 10px; border-radius:8px; display:flex; align-items:center; gap:5px; }
 
-/* ══ ADDITIONS & FIXES ══ */
+/* DARK MODE EXTRA FIXES */
+body.dark .lb-list-item { background:#1e1e30; border-color:#333; }
+body.dark .lb-info { color:#fff; }
+body.dark .lb-stat-badge { background:#1a1a2e; }
+body.dark .ss-box, body.dark .utd-box { background:#1e1e30; color:#e5e7eb; }
+body.dark .ss-title, body.dark .utd-title { color:#fff; }
+body.dark .ss-section { border-color:#333; }
+body.dark .ss-input, body.dark .utd-time-inp { background:#0f0f15; color:#fff; border-color:#333; }
 
-/* emoji picker — relative position for X button */
-
-
-
-/* quote block — prettier */
-.quote-block {
-  display:flex; flex-direction:column; gap:3px;
-  background: linear-gradient(135deg,#f0f6ff,#f8faff);
-  border-right: 3px solid #1a56db;
-  border-radius: 10px; padding: 8px 12px; margin-bottom: 10px;
-  cursor: pointer; transition: background .15s;
-}
-.quote-block:hover { background: #e8f0fe; }
-.quote-block-text { font-size:13px; color:#6b7280; font-style:italic; line-height:1.5; }
-
-/* report modal overlay */
+/* MODALS VISIBILITY AND ANIMATIONS */
 #reportModalOverlay { display:flex !important; }
 #reportModalOverlay[style*="display:none"] { display:none !important; }
-
-/* toast */
-@keyframes toastIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-
-/* header email badge */
-#hdrEmailCountBadge { animation: pickerPop .3s ease-out; }
-
-/* loadMore spinner show */
-#loadMoreSpinner.show { display:flex; }
-
-/* admin msgs send row show */
-.admin-msgs-send.show { display:flex; }
-
-/* reports modal */
 #reportsModal { display:flex !important; }
 #reportsModal[style*="display:none"] { display:none !important; }
-
-/* search bar open state */
-#searchBar.open { display:flex; }
-
-/* dark mode additions */
-body.dark .quote-block { background:#1e2a3a; border-color:#3b82f6; }
-body.dark .quote-block:hover { background:#1a2535; }
-body.dark .quote-block-text { color:#9ca3af; }
-body.dark #reportModalOverlay > div { background:#1a1a2e; }
+@keyframes toastIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
