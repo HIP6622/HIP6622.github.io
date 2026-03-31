@@ -149,8 +149,8 @@ async function loadAllowedMap(){
         _allowedMap[e.email.toLowerCase()]={name:e.name||e.email.split('@')[0], picture:e.picture||''};
       }
     });
-   renderChannels();
-    if(me) refreshUserMenu();
+      renderCreatorsSidebar(d.emails || []);
+      if(me) refreshUserMenu();
     // הצג יוצרים ב-sidebar
     const creators = (d.emails||[]).filter(e => typeof e === 'object' && e.email);
     if(window._renderCreatorsSidebar) window._renderCreatorsSidebar(creators);
