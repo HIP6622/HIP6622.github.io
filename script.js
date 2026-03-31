@@ -45,13 +45,14 @@ window.addEventListener('load', fetchSiteSettings);
 
 function initGlobalSettings() {
     const pageTitle = document.getElementById('pageTitle');
-    if(pageTitle) pageTitle.innerText = siteGlobalSettings.title;
+    if(pageTitle) pageTitle.innerText = "בינה ודעה";
+    
     const hdr = document.getElementById('hdrChannelName');
-    if (hdr) hdr.innerHTML = `${esc(siteGlobalSettings.title)} - <span style="color:#1a56db">${CHANNELS.find(c=>c.id===currentChannelId)?.name||'כללי'}</span>`;
+    if (hdr) hdr.innerHTML = `בינה ודעה - <span style="color:#1a56db">${CHANNELS.find(c=>c.id===currentChannelId)?.name||'כללי'}</span>`;
+    
     const logT = document.getElementById('loginSiteTitle'); 
-    if(logT) logT.innerText = siteGlobalSettings.title;
+    if(logT) logT.innerText = "בינה ודעה";
 }
-
 let currentChannelId = 'general';
 let CHANNELS = [
   { id: 'general', name: 'הערוץ הרשמי', icon: 'fa-star' },
