@@ -1493,3 +1493,40 @@ if (document.readyState === 'complete') {
 } else {
   window.addEventListener('load', tryInitGoogle);
 }
+/* ===== CREATORS SIDEBAR ===== */
+function renderCreatorsSidebar(admins) {
+  const list = document.getElementById('creatorsList');
+  if (!list || !admins) return;
+  const creators = admins.filter(a => typeof a === 'object' && a.email);
+  if (!creators.length) {
+    list.innerHTML = '<div style="padding:10px 15px;font-size:12px;color:#aaa;">אין יוצרים עדיין</div>';
+    return;
+  }
+  const colorPalette = ['#1a56db','#7c3aed','#059669','#e02020','#d97706','#0891b2','#db2777'];
+  list.innerHTML = creators.map(creator => {
+    const name = creator.name || creator.displayName || '?';
+    const initials = name.charAt(0).toUpperCase();
+    const color = colorPalette[Math.abs(initials.charCodeAt(0)) % colorPalette.length];
+    const pic = creator.picture || creator.photoURL || creator.avatar || '';
+    const avInner = pic
+      ? `<img src="${escAttr(pic)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none'">`
+      : initials;
+    const avStyle = pic ? '' : `background:${color};`;
+    const slug = creator.slug || '';
+    const badge = (creator.role === 'supervisor') ? '<span class="creator-badge">מנהל</span>' : '';
+    return `<div class="creator-item" onclick="switchToCreator('${escAttr(slug)}')" data-slug="${escAttr(slug)}">
+      <div class="creator-av" style="${avStyle}">${avInner}</div>
+      <span class="creator-name">${esc(name)}</span>
+      ${badge}
+    </div>`;
+  }).join('');
+}
+
+function switchToCreator(slug) {
+  document.querySelectorAll('.creator-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+  if (!slug) return;
+  const el = document.querySelector('.creator-item[data-slug="' + slug + '"]');
+  if (el) el.classList.add('active');
+  if (window.innerWidth <= 900) document.getElementById('leftSidebar').classList.remove('open');
+}
