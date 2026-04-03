@@ -275,7 +275,7 @@ async function verifyAndLogin(user){
     }
   } catch(e) {}
   
-  if(user.name&&(user.name.includes('×—')||user.name.includes('Ã'))) user.name=user.email.split('@')[0];
+if(user.name&&(user.name.includes('×—')||user.name.includes('Ã'))) user.name=user.email.split('@')[0];
   me=user; saveUser(user); await applyLogin(); return true;
 }
 
@@ -288,7 +288,8 @@ async function applyLogin(){
   
   const mailBtns = document.querySelectorAll('a[title="פנייה למנהל"]');
   mailBtns.forEach(btn => {
-      btn.href = "mailto:0548537646a@gmail.com?subject=" + encodeURIComponent("לכבוד מנהל אתר בינה ודעה");
+      // הקישור החכם שפותח חלון ג'ימייל חדש בדפדפן
+      btn.href = "https://mail.google.com/mail/?view=cm&fs=1&to=0548537646a@gmail.com&su=" + encodeURIComponent("לכבוד מנהל אתר בינה ודעה");
       btn.target = "_blank";
   });
 
