@@ -1645,67 +1645,69 @@ window.closeReportModal = function() {
   if (error) error.style.display = 'none';
 };
 
-// ====== טעינת היסטוריה (גלילה אינסופית) ======
-let isLoadingOlder = false;
+// ====== מנגנון טעינת היסטוריה אגרסיבי ======
+window.isLoadingOlder = false;
 
-async function loadOlderMessages() {
-    // אם כבר טוענים, או שנגמרה ההיסטוריה, או שאין זמן התחלתי - אל תעשה כלום
-    if (isLoadingOlder || allLoaded || !oldestTs) return;
-    isLoadingOlder = true;
-    
+window.loadOlderMessages = async function() {
+    if (window.isLoadingOlder || allLoaded || !oldestTs) return;
+    window.isLoadingOlder = true;
+
+    const inner = document.getElementById('feedInner');
+    if (!inner) return;
+
+    // הוספת חיווי טעינה כחול כדי שתראה שזה עובד
+    const loaderId = 'historyLoader_' + Date.now();
+    inner.insertAdjacentHTML('afterbegin', `<div id="${loaderId}" style="text-align:center; padding:15px; color:#1a56db; font-size:13px; font-weight:bold;">מושך היסטוריה מהשרת...</div>`);
+
     try {
-        // משיכת ההודעות הישנות מהשרת
         const r = await fetch(BACKEND + `/feed?channel=${currentChannelId}&before=${oldestTs}&limit=30&t=${Date.now()}`);
         const d = await r.json();
-        
+
+        const loaderEl = document.getElementById(loaderId);
+        if(loaderEl) loaderEl.remove();
+
         if (d.status === 'ok') {
-            let fetched = d.feed;
-            
-            // סינון כפילויות
+            let fetched = d.feed || [];
             fetched = fetched.filter(m => !knownIds.has(m.id));
-            
+
             if (fetched.length === 0) {
-                allLoaded = true; // אין יותר היסטוריה
+                allLoaded = true;
+                inner.insertAdjacentHTML('afterbegin', `<div style="text-align:center; padding:15px; color:#9ca3af; font-size:12px;">הגעת לתחילת הערוץ</div>`);
             } else {
                 fetched.forEach(m => knownIds.add(m.id));
-                
-                // עדכון הזמן של ההודעה הכי ישנה
+
+                // עדכון הזמן הישן ביותר
                 const minTs = Math.min(...fetched.map(m => m.ts || Infinity));
                 if (minTs < oldestTs) oldestTs = minTs;
-                
-                fetched.reverse(); 
+
+                fetched.reverse();
                 items = [...fetched, ...items];
-                
-                const inner = document.getElementById('feedInner');
+
                 const wrap = document.getElementById('feedWrap');
-                
-                // שמירת גובה המסך לפני שמוסיפים תוכן כדי למנוע קפיצה
-                const oldScrollHeight = wrap.scrollHeight;
-                
-                // בניית ההודעות והדבקתן בחלק העליון של הפיד
+                const oldScrollHeight = wrap ? wrap.scrollHeight : 0;
+
                 const olderHtml = fetched.map(buildMsg).join('');
-                inner.innerHTML = olderHtml + inner.innerHTML;
-                
-                // דחיפת הגלילה למקום המדויק בו היינו
-                wrap.scrollTop = wrap.scrollHeight - oldScrollHeight;
+                inner.insertAdjacentHTML('afterbegin', olderHtml);
+
+                // מתקן את הקפיצה כדי שתישאר באותו מקום בקריאה
+                if (wrap) wrap.scrollTop = wrap.scrollHeight - oldScrollHeight;
             }
         }
     } catch (e) {
-        console.error("שגיאה בטעינת היסטוריה:", e);
+        console.error("שגיאת היסטוריה:", e);
     }
     
-    isLoadingOlder = false;
-}
+    // מרווח ביטחון לטעינה הבאה
+    setTimeout(() => { window.isLoadingOlder = false; }, 500);
+};
 
-// חיבור מאזין הגלילה: מזהה מתי הגעת למעלה ומפעיל את הטעינה
-setTimeout(() => {
+// סורק אוטומטי שרץ ברקע כל חצי שנייה במקום לחכות לאירוע גלילה
+setInterval(() => {
     const wrap = document.getElementById('feedWrap');
-    if (wrap) {
-        wrap.addEventListener('scroll', () => {
-            // אם הגולש הגיע כמעט עד הלמעלה של המסך (50 פיקסלים)
-            if (wrap.scrollTop <= 50) {
-                loadOlderMessages();
-            }
-        });
+    if (!wrap || window.isLoadingOlder || allLoaded || !oldestTs) return;
+
+    // אם הגולש נמצא ב-150 הפיקסלים העליונים - תשאב מיד היסטוריה
+    if (wrap.scrollTop <= 150) {
+        window.loadOlderMessages();
     }
-}, 2000);
+}, 500);
