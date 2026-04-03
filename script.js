@@ -1644,3 +1644,68 @@ window.closeReportModal = function() {
   const error = document.getElementById('reportModalError');
   if (error) error.style.display = 'none';
 };
+
+// ====== טעינת היסטוריה (גלילה אינסופית) ======
+let isLoadingOlder = false;
+
+async function loadOlderMessages() {
+    // אם כבר טוענים, או שנגמרה ההיסטוריה, או שאין זמן התחלתי - אל תעשה כלום
+    if (isLoadingOlder || allLoaded || !oldestTs) return;
+    isLoadingOlder = true;
+    
+    try {
+        // משיכת ההודעות הישנות מהשרת
+        const r = await fetch(BACKEND + `/feed?channel=${currentChannelId}&before=${oldestTs}&limit=30&t=${Date.now()}`);
+        const d = await r.json();
+        
+        if (d.status === 'ok') {
+            let fetched = d.feed;
+            
+            // סינון כפילויות
+            fetched = fetched.filter(m => !knownIds.has(m.id));
+            
+            if (fetched.length === 0) {
+                allLoaded = true; // אין יותר היסטוריה
+            } else {
+                fetched.forEach(m => knownIds.add(m.id));
+                
+                // עדכון הזמן של ההודעה הכי ישנה
+                const minTs = Math.min(...fetched.map(m => m.ts || Infinity));
+                if (minTs < oldestTs) oldestTs = minTs;
+                
+                fetched.reverse(); 
+                items = [...fetched, ...items];
+                
+                const inner = document.getElementById('feedInner');
+                const wrap = document.getElementById('feedWrap');
+                
+                // שמירת גובה המסך לפני שמוסיפים תוכן כדי למנוע קפיצה
+                const oldScrollHeight = wrap.scrollHeight;
+                
+                // בניית ההודעות והדבקתן בחלק העליון של הפיד
+                const olderHtml = fetched.map(buildMsg).join('');
+                inner.innerHTML = olderHtml + inner.innerHTML;
+                
+                // דחיפת הגלילה למקום המדויק בו היינו
+                wrap.scrollTop = wrap.scrollHeight - oldScrollHeight;
+            }
+        }
+    } catch (e) {
+        console.error("שגיאה בטעינת היסטוריה:", e);
+    }
+    
+    isLoadingOlder = false;
+}
+
+// חיבור מאזין הגלילה: מזהה מתי הגעת למעלה ומפעיל את הטעינה
+setTimeout(() => {
+    const wrap = document.getElementById('feedWrap');
+    if (wrap) {
+        wrap.addEventListener('scroll', () => {
+            // אם הגולש הגיע כמעט עד הלמעלה של המסך (50 פיקסלים)
+            if (wrap.scrollTop <= 50) {
+                loadOlderMessages();
+            }
+        });
+    }
+}, 2000);
