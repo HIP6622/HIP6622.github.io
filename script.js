@@ -288,8 +288,8 @@ async function applyLogin(){
   
   const mailBtns = document.querySelectorAll('a[title="פנייה למנהל"]');
   mailBtns.forEach(btn => {
-      // הקישור החכם שפותח חלון ג'ימייל חדש בדפדפן
-      btn.href = "https://mail.google.com/mail/?view=cm&fs=1&to=0548537646a@gmail.com&su=" + encodeURIComponent("לכבוד מנהל אתר בינה ודעה");
+      // הקישור המעודכן שעובד ישירות על החשבון המחובר של המשתמש
+      btn.href = "https://mail.google.com/mail/u/0/?fs=1&to=0548537646a@gmail.com&su=" + encodeURIComponent("לכבוד מנהל אתר בינה ודעה") + "&tf=cm";
       btn.target = "_blank";
   });
 
