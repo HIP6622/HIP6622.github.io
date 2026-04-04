@@ -1605,7 +1605,6 @@ function renderCreatorsSidebar(admins) {
   }).join('');
 }
 
-let _creatorsPanelOpen = false;
 
 function toggleCreatorsPanel() {
   _creatorsPanelOpen = !_creatorsPanelOpen;
