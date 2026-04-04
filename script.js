@@ -75,7 +75,7 @@ onclick=toggleCreatorsPanel() {
     // הכנסת תיקיית "לפי יוצרים" מיד אחרי "הערוץ הרשמי" (שזה אינדקס 0)
     if (index === 0) {
       html += `
-        <div class="channel-item" onclick="toggleCreatorsFolder()" style="justify-content: space-between; background:#f9fafb; border-bottom:1px solid #f0f0f0;">
+        <div class="channel-item" onclick="toggleCreatorsPanel()" style="justify-content: space-between; background:#f9fafb; border-bottom:1px solid #f0f0f0;">
           <div><i class="fas fa-folder" style="color:#ca8a04;"></i> לפי יוצרים</div>
           <i class="fas fa-chevron-${isFolderOpen ? 'up' : 'down'}" id="creatorsFolderIcon" style="font-size:10px; color:#aaa;"></i>
         </div>
@@ -93,7 +93,7 @@ onclick=toggleCreatorsPanel() {
   if (hdrName) hdrName.innerHTML = `${esc(siteGlobalSettings.title)} - <span style="color:#1a56db">${currentName}</span>`;
 }
 
-function toggleCreatorsFolder() {
+onclick="toggleCreatorsPanel()" {
   const content = document.getElementById('creatorsFolderContent');
   const icon = document.getElementById('creatorsFolderIcon');
   if (!content) return;
@@ -1608,7 +1608,7 @@ function renderCreatorsSidebar(admins) {
 
 let _creatorsPanelOpen = false;
 
-onclick=toggleCreatorsFolder() {
+onclick="toggleCreatorsPanel()" {
   _creatorsPanelOpen = !_creatorsPanelOpen;
   document.getElementById('creatorsPanel')?.classList.toggle('open', _creatorsPanelOpen);
   document.querySelector('.creators-hdr')?.classList.toggle('open', _creatorsPanelOpen);
