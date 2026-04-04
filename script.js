@@ -1543,9 +1543,7 @@ function renderCreatorsSidebar(admins) {
   const listEl = document.getElementById('creatorsGlassList');
   if (!listEl || !admins) return;
 
-  // סינון רשימת היוצרים (רק כאלו שיש להם אימייל וסלאג)
   const creators = admins.filter(a => typeof a === 'object' && a.email);
-  
   if (!creators.length) {
     listEl.innerHTML = '<div style="padding:18px 12px;text-align:center;font-size:12px;color:rgba(255,255,255,0.25);font-family:Heebo,sans-serif;">אין יוצרים עדיין</div>';
     return;
@@ -1558,8 +1556,6 @@ function renderCreatorsSidebar(admins) {
     const initials = name.charAt(0).toUpperCase();
     const color    = palette[Math.abs(name.charCodeAt(0)) % palette.length];
     const pic      = creator.picture || creator.photoURL || '';
-    
-    // נקודת מפתח: מוודאים שיש לנו סלאג או חלק מהאימייל כמזהה
     const slug     = creator.slug || creator.email.split('@')[0];
     const role     = creator.role === 'supervisor' ? 'מנהל' : 'יוצר';
     
@@ -1582,26 +1578,53 @@ function renderCreatorsSidebar(admins) {
   }).join('');
 }
 
+let _creatorsPanelOpen = false;
+
+function toggleCreatorsPanel() {
+  _creatorsPanelOpen = !_creatorsPanelOpen;
+  document.getElementById('creatorsPanel')?.classList.toggle('open', _creatorsPanelOpen);
+  document.querySelector('.creators-hdr')?.classList.toggle('open', _creatorsPanelOpen);
+  if (_creatorsPanelOpen) {
+    setTimeout(() => document.addEventListener('click', _closePanelOutside), 0);
+  } else {
+    document.removeEventListener('click', _closePanelOutside);
+  }
+}
+
+function _closePanelOutside(e) {
+  const panel = document.getElementById('creatorsPanel');
+  const hdr   = document.querySelector('.creators-hdr');
+  if (panel && !panel.contains(e.target) && hdr && !hdr.contains(e.target)) {
+    _creatorsPanelOpen = false;
+    panel.classList.remove('open');
+    hdr.classList.remove('open');
+    document.removeEventListener('click', _closePanelOutside);
+  }
+}
+
+function closeCreatorsPanel() {
+  _creatorsPanelOpen = false;
+  document.getElementById('creatorsPanel')?.classList.remove('open');
+  document.querySelector('.creators-hdr')?.classList.remove('open');
+  document.removeEventListener('click', _closePanelOutside);
+}
+
 async function selectCreator(slug, el) {
   if (!slug) return;
 
-  // 1. אפקטים ויזואליים
   document.querySelectorAll('.cg-item').forEach(i => i.classList.remove('active'));
   document.querySelectorAll('.channel-item').forEach(i => i.classList.remove('active'));
   if (el) el.classList.add('active');
   
-  // 2. סגירת תפריטים
   closeCreatorsPanel();
   if (window.innerWidth <= 900) {
     document.getElementById('leftSidebar')?.classList.remove('open');
   }
 
-  // 3. משיכת הנתונים המעודכנים מהשרת כדי למצוא את האימייל המדויק
   try {
     const lr = await fetch(BACKEND + '/allowed_list?t=' + Date.now());
     const ld = await lr.json();
     
-    // חיפוש היוצר לפי הסלאג שלחצנו עליו
     const creators = ld.emails || [];
     const found = creators.find(e => 
       typeof e === 'object' && (e.slug === slug || e.email.split('@')[0] === slug)
@@ -1611,10 +1634,8 @@ async function selectCreator(slug, el) {
       const targetEmail = found.email.toLowerCase();
       const targetName = found.name || found.displayName || 'יוצר';
 
-      // 4. הפקודה שאשכרה טוענת את הפוסטים של אותו יוצר
       switchChannel('creator_' + targetEmail, 'הערוץ של ' + targetName);
       
-      // עדכון הכותרת למעלה
       setTimeout(() => {
         const hdrName = document.getElementById('hdrChannelName');
         if (hdrName) hdrName.innerHTML = `<span style="color:#1a56db">הערוץ של ${targetName}</span>`;
