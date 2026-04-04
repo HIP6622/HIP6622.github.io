@@ -1538,161 +1538,89 @@ if (document.readyState === 'complete') {
   window.addEventListener('load', tryInitGoogle);
 }
 
-/* ===== CREATORS SIDEBAR ===== */
+/* ===== CREATORS SIDEBAR (Glass Panel) ===== */
 function renderCreatorsSidebar(admins) {
   const listEl = document.getElementById('creatorsGlassList');
   if (!listEl || !admins) return;
+
+  // סינון רשימת היוצרים (רק כאלו שיש להם אימייל וסלאג)
   const creators = admins.filter(a => typeof a === 'object' && a.email);
+  
   if (!creators.length) {
     listEl.innerHTML = '<div style="padding:18px 12px;text-align:center;font-size:12px;color:rgba(255,255,255,0.25);font-family:Heebo,sans-serif;">אין יוצרים עדיין</div>';
     return;
   }
+
   const palette = ['#818cf8','#34d399','#f472b6','#fb923c','#60a5fa','#a78bfa','#f87171'];
+  
   listEl.innerHTML = creators.map((creator, idx) => {
     const name     = creator.name || creator.displayName || '?';
     const initials = name.charAt(0).toUpperCase();
     const color    = palette[Math.abs(name.charCodeAt(0)) % palette.length];
     const pic      = creator.picture || creator.photoURL || '';
-    const slug     = creator.slug || '';
+    
+    // נקודת מפתח: מוודאים שיש לנו סלאג או חלק מהאימייל כמזהה
+    const slug     = creator.slug || creator.email.split('@')[0];
     const role     = creator.role === 'supervisor' ? 'מנהל' : 'יוצר';
+    
     const avContent = pic
       ? `<img src="${escAttr(pic)}" onerror="this.style.display='none';this.parentElement.style.background='${color}';this.parentElement.textContent='${initials}'">`
       : initials;
     const avBg = pic ? '' : `background:${color};`;
-    return `<div class="cg-item" data-slug="${escAttr(slug)}" onclick="selectCreator('${escAttr(slug)}', this)" style="animation:cg-in ${0.12 + idx * 0.04}s ease both;">
-      <div class="cg-av-wrap">
-        <div class="cg-av-ring"></div>
-        <div class="cg-av-inner" style="${avBg}">${avContent}</div>
-      </div>
-      <div class="cg-info">
-        <div class="cg-name">${esc(name)}</div>
-        <div class="cg-role">${esc(role)}</div>
-      </div>
-    </div>`;
+
+    return `
+      <div class="cg-item" onclick="selectCreator('${escAttr(slug)}', this)" style="animation:cg-in ${0.12 + idx * 0.04}s ease both;">
+        <div class="cg-av-wrap">
+          <div class="cg-av-ring"></div>
+          <div class="cg-av-inner" style="${avBg}">${avContent}</div>
+        </div>
+        <div class="cg-info">
+          <div class="cg-name">${esc(name)}</div>
+          <div class="cg-role">${esc(role)}</div>
+        </div>
+      </div>`;
   }).join('');
 }
 
-let _creatorsPanelOpen = false;
-
-function toggleCreatorsPanel() {
-  _creatorsPanelOpen = !_creatorsPanelOpen;
-  document.getElementById('creatorsPanel')?.classList.toggle('open', _creatorsPanelOpen);
-  document.querySelector('.creators-hdr')?.classList.toggle('open', _creatorsPanelOpen);
-  if (_creatorsPanelOpen) {
-    setTimeout(() => document.addEventListener('click', _closePanelOutside), 0);
-  } else {
-    document.removeEventListener('click', _closePanelOutside);
-  }
-}
-
-function _closePanelOutside(e) {
-  const panel = document.getElementById('creatorsPanel');
-  const hdr   = document.querySelector('.creators-hdr');
-  if (panel && !panel.contains(e.target) && hdr && !hdr.contains(e.target)) {
-    _creatorsPanelOpen = false;
-    panel.classList.remove('open');
-    hdr.classList.remove('open');
-    document.removeEventListener('click', _closePanelOutside);
-  }
-}
-
-function closeCreatorsPanel() {
-  _creatorsPanelOpen = false;
-  document.getElementById('creatorsPanel')?.classList.remove('open');
-  document.querySelector('.creators-hdr')?.classList.remove('open');
-  document.removeEventListener('click', _closePanelOutside);
-}
-
 async function selectCreator(slug, el) {
+  if (!slug) return;
+
+  // 1. אפקטים ויזואליים
   document.querySelectorAll('.cg-item').forEach(i => i.classList.remove('active'));
   document.querySelectorAll('.channel-item').forEach(i => i.classList.remove('active'));
   if (el) el.classList.add('active');
   
+  // 2. סגירת תפריטים
   closeCreatorsPanel();
   if (window.innerWidth <= 900) {
     document.getElementById('leftSidebar')?.classList.remove('open');
   }
 
-  if (!slug) return;
+  // 3. משיכת הנתונים המעודכנים מהשרת כדי למצוא את האימייל המדויק
+  try {
+    const lr = await fetch(BACKEND + '/allowed_list?t=' + Date.now());
+    const ld = await lr.json();
+    
+    // חיפוש היוצר לפי הסלאג שלחצנו עליו
+    const creators = ld.emails || [];
+    const found = creators.find(e => 
+      typeof e === 'object' && (e.slug === slug || e.email.split('@')[0] === slug)
+    );
 
-  const lr = await fetch(BACKEND + '/allowed_list?t=' + Date.now());
-  const ld = await lr.json();
-  const creator = (ld.emails || []).find(e => typeof e === 'object' && (e.slug === slug || e.email.split('@')[0] === slug));
-  const creatorEmail = creator ? creator.email.toLowerCase() : null;
-  const creatorName = creator ? (creator.name || creator.displayName) : 'יוצר';
+    if (found && found.email) {
+      const targetEmail = found.email.toLowerCase();
+      const targetName = found.name || found.displayName || 'יוצר';
 
-  if (creatorEmail) {
-    switchChannel('creator_' + creatorEmail, 'הערוץ של ' + creatorName);
-    setTimeout(() => {
+      // 4. הפקודה שאשכרה טוענת את הפוסטים של אותו יוצר
+      switchChannel('creator_' + targetEmail, 'הערוץ של ' + targetName);
+      
+      // עדכון הכותרת למעלה
+      setTimeout(() => {
         const hdrName = document.getElementById('hdrChannelName');
-        if (hdrName) hdrName.innerHTML = `<span style="color:#1a56db">הערוץ של ${creatorName}</span>`;
-    }, 50);
+        if (hdrName) hdrName.innerHTML = `<span style="color:#1a56db">הערוץ של ${targetName}</span>`;
+      }, 100);
+    }
+  } catch (err) {
+    console.error("Error switching to creator:", err);
   }
 }
-
-(function injectCreatorKeyframe() {
-  if (document.getElementById('cg-keyframes')) return;
-  const s = document.createElement('style');
-  s.id = 'cg-keyframes';
-  s.textContent = '@keyframes cg-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }';
-  document.head.appendChild(s);
-})();
-
-window.closeReportModal = function() {
-    try {
-        if (window.event && window.event.target) {
-            const modalWrapper = window.event.target.closest('div[style*="fixed"]') || window.event.target.closest('div[style*="absolute"]');
-            if (modalWrapper) { modalWrapper.style.display = 'none'; }
-        }
-    } catch(e) {}
-    document.querySelectorAll('div').forEach(el => {
-        const onClickAttr = el.getAttribute('onclick');
-        if (onClickAttr && onClickAttr.includes('closeReportModal') && el.children.length > 0) { el.style.display = 'none'; }
-    });
-    const inputs = document.querySelectorAll('textarea, input');
-    inputs.forEach(input => {
-        if (input.id && input.id.toLowerCase().includes('report')) { input.value = ''; }
-    });
-};
-
-window.isLoadingOlder = false;
-window.loadOlderMessages = async function() {
-    if (window.isLoadingOlder || allLoaded || !oldestTs) return;
-    window.isLoadingOlder = true;
-    const inner = document.getElementById('feedInner');
-    if (!inner) return;
-    const loaderId = 'historyLoader_' + Date.now();
-    inner.insertAdjacentHTML('afterbegin', `<div id="${loaderId}" style="text-align:center; padding:15px; color:#1a56db; font-size:13px; font-weight:bold;">מושך היסטוריה מהשרת...</div>`);
-    try {
-        const r = await fetch(BACKEND + `/feed?channel=${currentChannelId}&before=${oldestTs}&limit=30&t=${Date.now()}`);
-        const d = await r.json();
-        const loaderEl = document.getElementById(loaderId);
-        if(loaderEl) loaderEl.remove();
-        if (d.status === 'ok') {
-            let fetched = d.feed || [];
-            fetched = fetched.filter(m => !knownIds.has(m.id));
-            if (fetched.length === 0) {
-                allLoaded = true;
-                inner.insertAdjacentHTML('afterbegin', `<div style="text-align:center; padding:15px; color:#9ca3af; font-size:12px;">הגעת לתחילת הערוץ</div>`);
-            } else {
-                fetched.forEach(m => knownIds.add(m.id));
-                const minTs = Math.min(...fetched.map(m => m.ts || Infinity));
-                if (minTs < oldestTs) oldestTs = minTs;
-                fetched.reverse();
-                items = [...fetched, ...items];
-                const wrap = document.getElementById('feedWrap');
-                const oldScrollHeight = wrap ? wrap.scrollHeight : 0;
-                const olderHtml = fetched.map(buildMsg).join('');
-                inner.insertAdjacentHTML('afterbegin', olderHtml);
-                if (wrap) wrap.scrollTop = wrap.scrollHeight - oldScrollHeight;
-            }
-        }
-    } catch (e) { console.error("שגיאת היסטוריה:", e); }
-    setTimeout(() => { window.isLoadingOlder = false; }, 500);
-};
-
-setInterval(() => {
-    const wrap = document.getElementById('feedWrap');
-    if (!wrap || window.isLoadingOlder || allLoaded || !oldestTs) return;
-    if (wrap.scrollTop <= 150) { window.loadOlderMessages(); }
-}, 500);
