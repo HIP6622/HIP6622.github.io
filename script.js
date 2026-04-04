@@ -1636,10 +1636,68 @@ function closeCreatorsPanel() {
   document.removeEventListener('click', _closePanelOutside);
 }
 
-function selectCreator(slug, el) {
+let _creatorsPanelOpen = false;
+
+function toggleCreatorsPanel() {
+  _creatorsPanelOpen = !_creatorsPanelOpen;
+  document.getElementById('creatorsPanel')?.classList.toggle('open', _creatorsPanelOpen);
+  document.querySelector('.creators-hdr')?.classList.toggle('open', _creatorsPanelOpen);
+  if (_creatorsPanelOpen) {
+    setTimeout(() => document.addEventListener('click', _closePanelOutside), 0);
+  } else {
+    document.removeEventListener('click', _closePanelOutside);
+  }
+}
+
+function _closePanelOutside(e) {
+  const panel = document.getElementById('creatorsPanel');
+  const hdr   = document.querySelector('.creators-hdr');
+  if (panel && !panel.contains(e.target) && hdr && !hdr.contains(e.target)) {
+    _creatorsPanelOpen = false;
+    panel.classList.remove('open');
+    hdr.classList.remove('open');
+    document.removeEventListener('click', _closePanelOutside);
+  }
+}
+
+function closeCreatorsPanel() {
+  _creatorsPanelOpen = false;
+  document.getElementById('creatorsPanel')?.classList.remove('open');
+  document.querySelector('.creators-hdr')?.classList.remove('open');
+  document.removeEventListener('click', _closePanelOutside);
+}
+
+async function selectCreator(slug, el) {
+  // 1. שינוי עיצוב (הדגשת היוצר שנבחר והורדת הדגשה מהערוץ הרגיל)
   document.querySelectorAll('.cg-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.channel-item').forEach(i => i.classList.remove('active'));
   if (el) el.classList.add('active');
-  if (window.innerWidth <= 900) closeCreatorsPanel();
+  
+  // 2. סגירת חלון היוצרים מיד אחרי הלחיצה (ובמובייל גם סגירת התפריט הצדדי)
+  closeCreatorsPanel();
+  if (window.innerWidth <= 900) {
+    document.getElementById('leftSidebar')?.classList.remove('open');
+  }
+
+  if (!slug) return;
+
+  // 3. משיכת פרטי היוצר מהשרת
+  const lr = await fetch(BACKEND + '/allowed_list?t=' + Date.now());
+  const ld = await lr.json();
+  const creator = (ld.emails || []).find(e => typeof e === 'object' && (e.slug === slug || e.email.split('@')[0] === slug));
+  const creatorEmail = creator ? creator.email.toLowerCase() : null;
+  const creatorName = creator ? (creator.name || creator.displayName) : 'יוצר';
+
+  // 4. מעבר בפועל לערוץ של היוצר!
+  if (creatorEmail) {
+    switchChannel('creator_' + creatorEmail, 'הערוץ של ' + creatorName);
+    
+    // מעדכן את הכותרת למעלה
+    setTimeout(() => {
+        const hdrName = document.getElementById('hdrChannelName');
+        if (hdrName) hdrName.innerHTML = `<span style="color:#1a56db">הערוץ של ${creatorName}</span>`;
+    }, 50);
+  }
 }
 
 (function injectCreatorKeyframe() {
