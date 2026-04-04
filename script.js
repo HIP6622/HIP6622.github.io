@@ -63,47 +63,14 @@ let CHANNELS = [
 
 function renderChannels() {
   const list = document.getElementById('channelsList'); if(!list) return;
-  
-  // נשמור את רשימת היוצרים בצד כדי שלא תימחק כשאנחנו בונים את התפריט
-  const cl = document.getElementById('creatorsList');
-  const isFolderOpen = document.getElementById('creatorsFolderContent')?.style.display === 'block';
-
   let html = '';
-  CHANNELS.forEach((ch, index) => {
+  CHANNELS.forEach((ch) => {
     html += `<div class="channel-item ${ch.id === currentChannelId ? 'active' : ''}" onclick="switchChannel('${ch.id}', '${ch.name}')"><i class="fas ${ch.icon}"></i> ${ch.name}</div>`;
-    
-    // הכנסת תיקיית "לפי יוצרים" מיד אחרי "הערוץ הרשמי" (שזה אינדקס 0)
-    if (index === 0) {
-      html += `
-        <div class="channel-item" onclick="toggleCreatorsFolder()" style="justify-content: space-between; background:#f9fafb; border-bottom:1px solid #f0f0f0;">
-          <div><i class="fas fa-folder" style="color:#ca8a04;"></i> לפי יוצרים</div>
-          <i class="fas fa-chevron-${isFolderOpen ? 'up' : 'down'}" id="creatorsFolderIcon" style="font-size:10px; color:#aaa;"></i>
-        </div>
-        <div id="creatorsFolderContent" style="display:${isFolderOpen ? 'block' : 'none'}; background:#fafafa; box-shadow:inset 0 2px 4px rgba(0,0,0,0.02);"></div>
-      `;
-    }
   });
   list.innerHTML = html;
-  
-  // הכנסת היוצרים לתוך התיקייה הנפתחת
-  if (cl) document.getElementById('creatorsFolderContent').appendChild(cl);
-
   const currentName = CHANNELS.find(c=>c.id===currentChannelId)?.name || 'כללי';
   const hdrName = document.getElementById('hdrChannelName');
   if (hdrName) hdrName.innerHTML = `${esc(siteGlobalSettings.title)} - <span style="color:#1a56db">${currentName}</span>`;
-}
-
-function toggleCreatorsFolder() {
-  const content = document.getElementById('creatorsFolderContent');
-  const icon = document.getElementById('creatorsFolderIcon');
-  if (!content) return;
-  if (content.style.display === 'none') {
-    content.style.display = 'block';
-    if(icon) icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
-  } else {
-    content.style.display = 'none';
-    if(icon) icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
-  }
 }
 async function switchChannel(channelId, channelName) {
   if (currentChannelId === channelId) return;
@@ -1571,7 +1538,7 @@ if (document.readyState === 'complete') {
   window.addEventListener('load', tryInitGoogle);
 }
 
-/* ===== CREATORS SIDEBAR ===== */
+/* ===== CREATORS SIDEBAR (Glass Panel) ===== */
 function renderCreatorsSidebar(admins) {
   const listEl = document.getElementById('creatorsGlassList');
   if (!listEl || !admins) return;
@@ -1603,36 +1570,6 @@ function renderCreatorsSidebar(admins) {
       </div>
     </div>`;
   }).join('');
-}
-
-
-function toggleCreatorsPanel() {
-  _creatorsPanelOpen = !_creatorsPanelOpen;
-  document.getElementById('creatorsPanel')?.classList.toggle('open', _creatorsPanelOpen);
-  document.querySelector('.creators-hdr')?.classList.toggle('open', _creatorsPanelOpen);
-  if (_creatorsPanelOpen) {
-    setTimeout(() => document.addEventListener('click', _closePanelOutside), 0);
-  } else {
-    document.removeEventListener('click', _closePanelOutside);
-  }
-}
-
-function _closePanelOutside(e) {
-  const panel = document.getElementById('creatorsPanel');
-  const hdr   = document.querySelector('.creators-hdr');
-  if (panel && !panel.contains(e.target) && hdr && !hdr.contains(e.target)) {
-    _creatorsPanelOpen = false;
-    panel.classList.remove('open');
-    hdr.classList.remove('open');
-    document.removeEventListener('click', _closePanelOutside);
-  }
-}
-
-function closeCreatorsPanel() {
-  _creatorsPanelOpen = false;
-  document.getElementById('creatorsPanel')?.classList.remove('open');
-  document.querySelector('.creators-hdr')?.classList.remove('open');
-  document.removeEventListener('click', _closePanelOutside);
 }
 
 let _creatorsPanelOpen = false;
@@ -1667,12 +1604,10 @@ function closeCreatorsPanel() {
 }
 
 async function selectCreator(slug, el) {
-  // 1. שינוי עיצוב (הדגשת היוצר שנבחר והורדת הדגשה מהערוץ הרגיל)
   document.querySelectorAll('.cg-item').forEach(i => i.classList.remove('active'));
   document.querySelectorAll('.channel-item').forEach(i => i.classList.remove('active'));
   if (el) el.classList.add('active');
   
-  // 2. סגירת חלון היוצרים מיד אחרי הלחיצה (ובמובייל גם סגירת התפריט הצדדי)
   closeCreatorsPanel();
   if (window.innerWidth <= 900) {
     document.getElementById('leftSidebar')?.classList.remove('open');
@@ -1680,18 +1615,14 @@ async function selectCreator(slug, el) {
 
   if (!slug) return;
 
-  // 3. משיכת פרטי היוצר מהשרת
   const lr = await fetch(BACKEND + '/allowed_list?t=' + Date.now());
   const ld = await lr.json();
   const creator = (ld.emails || []).find(e => typeof e === 'object' && (e.slug === slug || e.email.split('@')[0] === slug));
   const creatorEmail = creator ? creator.email.toLowerCase() : null;
   const creatorName = creator ? (creator.name || creator.displayName) : 'יוצר';
 
-  // 4. מעבר בפועל לערוץ של היוצר!
   if (creatorEmail) {
     switchChannel('creator_' + creatorEmail, 'הערוץ של ' + creatorName);
-    
-    // מעדכן את הכותרת למעלה
     setTimeout(() => {
         const hdrName = document.getElementById('hdrChannelName');
         if (hdrName) hdrName.innerHTML = `<span style="color:#1a56db">הערוץ של ${creatorName}</span>`;
@@ -1707,99 +1638,63 @@ async function selectCreator(slug, el) {
   document.head.appendChild(s);
 })();
 
-// פונקציה חכמה לסגירת חלונות דיווח (רגיל וניהול)
 window.closeReportModal = function() {
-    // 1. מזהה מאיפה לחצו (מה-X, מהביטול או מהרקע) וסוגר את מעטפת האב המרכזית
     try {
         if (window.event && window.event.target) {
-            // מחפש את המסגרת העליונה של החלון שיש לה פוזיציה מקובעת למסך
             const modalWrapper = window.event.target.closest('div[style*="fixed"]') || window.event.target.closest('div[style*="absolute"]');
-            if (modalWrapper) {
-                modalWrapper.style.display = 'none';
-            }
+            if (modalWrapper) modalWrapper.style.display = 'none';
         }
     } catch(e) {}
-
-    // 2. גיבוי: מעלים כל רקע שמכיל את הפקודה הזו
     document.querySelectorAll('div').forEach(el => {
         const onClickAttr = el.getAttribute('onclick');
         if (onClickAttr && onClickAttr.includes('closeReportModal') && el.children.length > 0) {
             el.style.display = 'none';
         }
     });
-
-    // 3. מנקה את תיבת הטקסט (אם יש כזו באותו חלון) כדי שלא יישאר מלוכלך לפעם הבאה
     const inputs = document.querySelectorAll('textarea, input');
     inputs.forEach(input => {
-        if (input.id && input.id.toLowerCase().includes('report')) {
-            input.value = '';
-        }
+        if (input.id && input.id.toLowerCase().includes('report')) input.value = '';
     });
 };
 
-// ====== מנגנון טעינת היסטוריה אגרסיבי ======
 window.isLoadingOlder = false;
-
 window.loadOlderMessages = async function() {
     if (window.isLoadingOlder || allLoaded || !oldestTs) return;
     window.isLoadingOlder = true;
-
     const inner = document.getElementById('feedInner');
     if (!inner) return;
-
-    // הוספת חיווי טעינה כחול כדי שתראה שזה עובד
     const loaderId = 'historyLoader_' + Date.now();
     inner.insertAdjacentHTML('afterbegin', `<div id="${loaderId}" style="text-align:center; padding:15px; color:#1a56db; font-size:13px; font-weight:bold;">מושך היסטוריה מהשרת...</div>`);
-
     try {
         const r = await fetch(BACKEND + `/feed?channel=${currentChannelId}&before=${oldestTs}&limit=30&t=${Date.now()}`);
         const d = await r.json();
-
         const loaderEl = document.getElementById(loaderId);
         if(loaderEl) loaderEl.remove();
-
         if (d.status === 'ok') {
             let fetched = d.feed || [];
             fetched = fetched.filter(m => !knownIds.has(m.id));
-
             if (fetched.length === 0) {
                 allLoaded = true;
                 inner.insertAdjacentHTML('afterbegin', `<div style="text-align:center; padding:15px; color:#9ca3af; font-size:12px;">הגעת לתחילת הערוץ</div>`);
             } else {
                 fetched.forEach(m => knownIds.add(m.id));
-
-                // עדכון הזמן הישן ביותר
                 const minTs = Math.min(...fetched.map(m => m.ts || Infinity));
                 if (minTs < oldestTs) oldestTs = minTs;
-
                 fetched.reverse();
                 items = [...fetched, ...items];
-
                 const wrap = document.getElementById('feedWrap');
                 const oldScrollHeight = wrap ? wrap.scrollHeight : 0;
-
                 const olderHtml = fetched.map(buildMsg).join('');
                 inner.insertAdjacentHTML('afterbegin', olderHtml);
-
-                // מתקן את הקפיצה כדי שתישאר באותו מקום בקריאה
                 if (wrap) wrap.scrollTop = wrap.scrollHeight - oldScrollHeight;
             }
         }
-    } catch (e) {
-        console.error("שגיאת היסטוריה:", e);
-    }
-    
-    // מרווח ביטחון לטעינה הבאה
+    } catch (e) { console.error("שגיאת היסטוריה:", e); }
     setTimeout(() => { window.isLoadingOlder = false; }, 500);
 };
 
-// סורק אוטומטי שרץ ברקע כל חצי שנייה במקום לחכות לאירוע גלילה
 setInterval(() => {
     const wrap = document.getElementById('feedWrap');
     if (!wrap || window.isLoadingOlder || allLoaded || !oldestTs) return;
-
-    // אם הגולש נמצא ב-150 הפיקסלים העליונים - תשאב מיד היסטוריה
-    if (wrap.scrollTop <= 150) {
-        window.loadOlderMessages();
-    }
+    if (wrap.scrollTop <= 150) window.loadOlderMessages();
 }, 500);
