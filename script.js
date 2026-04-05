@@ -1967,3 +1967,35 @@ window.handleChatInputKey = function(e) {
 
 // מפעיל את הצ'אט ברקע כל 3 שניות
 setInterval(window.loadChatMessages, 3000);
+// ====== אפקט עכבר לרקע דינמי ======
+document.addEventListener("DOMContentLoaded", () => {
+    const mouseBlob = document.getElementById('mouseBlob');
+    if (!mouseBlob) return;
+
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let currentX = mouseX;
+    let currentY = mouseY;
+
+    window.addEventListener('mousemove', (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+    });
+
+    // תמיכה גם במסכי מגע (טלפונים)
+    window.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 0) {
+            mouseX = e.touches[0].clientX;
+            mouseY = e.touches[0].clientY;
+        }
+    });
+
+    function animateBg() {
+        currentX += (mouseX - currentX) * 0.06;
+        currentY += (mouseY - currentY) * 0.06;
+        mouseBlob.style.transform = `translate(${currentX}px, ${currentY}px) translate(-50%, -50%)`;
+        requestAnimationFrame(animateBg);
+    }
+    
+    animateBg();
+});
