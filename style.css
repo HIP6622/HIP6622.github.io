@@ -920,16 +920,28 @@ body.dark #searchResults { background: #0f0f15; }
     color: #1a56db !important; 
     border-color: #bfdbfe !important;
 }
-/* הגמשת תצוגת ה-HTML בהודעות - ביטול צורת הריבוע */
-#feedWrap iframe,
-.msg-html-content,
-.msg-html-wrap {
+/* 1. שחרור מלא של ההגבלות מהודעות בפיד (כדי שלא ימעכו את התוכן) */
+#feedWrap .msg-text, 
+#feedWrap .msg-content, 
+#feedWrap .feed-msg-body {
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* 2. מתיחה אגרסיבית של כל קוד HTML או iframe בתוך הודעה */
+#feedWrap iframe, 
+#feedWrap .html-container,
+#feedWrap .msg-html-wrap,
+#feedWrap [srcdoc] {
     width: 100% !important;
-    min-height: 450px !important; /* נותן גובה התחלתי מכובד לתוכן ארוך */
-    height: auto !important;
-    aspect-ratio: auto !important; /* מבטל את הצורה המרובעת המעצבנת */
+    min-height: 550px !important; /* גובה התחלתי ענק */
+    height: 100% !important;
+    max-height: 800px !important; /* נותן לו מלא מקום לגדול */
+    aspect-ratio: unset !important; /* מבטל כל צורה של ריבוע */
+    border: 1px solid #e5e7eb !important;
     border-radius: 12px !important;
-    border: none !important;
-    resize: vertical !important; /* טריק מגניב: מאפשר למשתמשים למתוח את החלון כלפי מטה אם ה-HTML ממש ארוך! */
+    display: block !important;
+    resize: vertical !important;
     overflow: auto !important;
+    background: #fff !important;
 }
