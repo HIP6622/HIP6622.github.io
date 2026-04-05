@@ -1645,3 +1645,39 @@ async function selectCreator(slug, el) {
     console.error("Error switching to creator:", err);
   }
 }
+async function uploadToImgBB(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const statusEl = document.getElementById('uploadStatus');
+    const urlInput = document.getElementById('composeImgUrl');
+    
+    if(statusEl) statusEl.style.display = 'block';
+    
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+        const response = await fetch('https://api.imgbb.com/1/upload?key=3608f987ec12ff8b4b6100fbd0c86b0e', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            const imageUrl = result.data.url;
+            urlInput.value = imageUrl;
+            // קורא לפונקציה הקיימת שלך שמעדכנת את התצוגה המקדימה
+            if (typeof updateComposeImg === 'function') updateComposeImg();
+            alert('התמונה הועלתה בהצלחה!');
+        } else {
+            alert('שגיאה בהעלאה: ' + result.error.message);
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        alert('נכשל בתקשורת עם שרת התמונות');
+    } finally {
+        if(statusEl) statusEl.style.display = 'none';
+        input.value = ''; // מאפס את הבחירה
+    }
+}
