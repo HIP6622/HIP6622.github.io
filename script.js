@@ -1904,3 +1904,66 @@ setInterval(function() {
         }
     }
 }, 1000);
+// ====== תיקון צ'אט מנהלים (דורס את הפונקציות הישנות) ======
+
+// משיכת הודעות
+window.loadChatMessages = async function() {
+    if (!window.userEmail) return;
+    try {
+        const res = await fetch(`${BACKEND}/chat_get?email=${encodeURIComponent(userEmail)}&t=${Date.now()}`);
+        const data = await res.json();
+        if (data.status === 'ok') {
+            const container = document.getElementById('chatMessages');
+            if (!container) return;
+            const msgsHtml = data.messages.map(m => `
+                <div class="chat-msg ${m.email === userEmail ? 'me' : ''}">
+                    <div class="chat-msg-name">${m.name || 'מנהל'}</div>
+                    <div class="chat-msg-text">${m.text}</div>
+                </div>
+            `).join('');
+            
+            if (container.innerHTML !== msgsHtml) {
+                container.innerHTML = msgsHtml || '<div class="chat-empty-msg">אין הודעות עדיין</div>';
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+    } catch (e) { console.error("Chat Error:", e); }
+};
+
+// שליחת הודעה
+window.sendChatMsg = async function() {
+    const input = document.getElementById('chatInput');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text || !window.userEmail) return;
+
+    input.disabled = true;
+    try {
+        const res = await fetch(`${BACKEND}/chat_send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: userEmail, name: window.userName || 'מנהל', text: text })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            input.value = '';
+            input.style.height = 'auto';
+            loadChatMessages(); // מרענן מיד אחרי השליחה
+        }
+    } catch (e) {
+        console.error("שגיאה בשליחה:", e);
+    } finally {
+        input.disabled = false;
+        input.focus();
+    }
+};
+
+window.handleChatInputKey = function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMsg();
+    }
+};
+
+// מפעיל את הצ'אט ברקע כל 3 שניות
+setInterval(window.loadChatMessages, 3000);
