@@ -945,7 +945,7 @@ body.dark #searchResults { background: #0f0f15; }
     overflow: auto !important;
     background: #fff !important;
 }
-/* ====== רקע אינטראקטיבי דינמי ====== */
+/* ====== רקע אינטראקטיבי דינמי - גרסת גלריית AI יוקרתית ====== */
 .bg-container {
     position: fixed;
     top: 0;
@@ -954,57 +954,63 @@ body.dark #searchResults { background: #0f0f15; }
     height: 100vh;
     z-index: -10; /* שומר את הרקע מתחת לכל האתר */
     overflow: hidden;
-    background: #0077b6; /* צבע הבסיס */
-    pointer-events: none; /* מונע מהרקע לחסום לחיצות עכבר באתר */
+    background: #f8fafc; /* אפור-לבן נקי ויוקרתי (כמו קיר של גלריה) */
+    pointer-events: none; /* מונע חסימת לחיצות */
 }
 
 .blob {
     position: absolute;
     border-radius: 50%;
-    filter: blur(80px);
-    opacity: 1;
-    animation: float 20s infinite ease-in-out alternate;
+    filter: blur(90px); /* טשטוש עמוק ליצירת מראה חלבי רך */
+    opacity: 0.8; /* טיפה שקיפות כדי שלא יגנוב את ההצגה מהתוכן */
+    animation: float 25s infinite ease-in-out alternate;
     will-change: transform;
 }
 
+/* בועה 1 - לילך (יצירתיות ובינה) */
 .blob-1 {
     top: -10%; left: -10%;
     width: 60vw; height: 60vw;
-    background: #00b4d8;
+    background: #e0e7ff;
     animation-delay: 0s;
 }
 
+/* בועה 2 - ורוד שמפניה (אמנות וחום אנושי) */
 .blob-2 {
     bottom: -20%; right: -10%;
     width: 70vw; height: 70vw;
-    background: #90e0ef;
+    background: #fae8ff;
     animation-delay: -5s;
 }
 
+/* בועה 3 - תכלת בייבי (טכנולוגיה) */
 .blob-3 {
     top: 40%; left: 30%;
     width: 50vw; height: 50vw;
-    background: #caf0f8;
+    background: #e0f2fe;
     animation-delay: -10s;
 }
 
+/* העכבר - "הילת AI" שעוקבת אחרי המשתמש */
 .mouse-blob {
     position: absolute;
     top: 0; left: 0;
-    width: 45vw; height: 45vw;
-    background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.4) 35%, transparent 70%);
+    width: 40vw; height: 40vw;
+    /* תאורה לבנה עם נגיעה חלשה של זהב שמקפיצה את הלבן של ההודעות */
+    background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(253, 251, 247, 0.6) 30%, transparent 70%);
     border-radius: 50%;
     pointer-events: none;
     z-index: 1;
-    filter: blur(30px);
+    filter: blur(40px);
     transform: translate(-50%, -50%);
     will-change: transform;
     mix-blend-mode: overlay;
 }
 
+/* תנועה חלקה ומהפנטת שמתאימה לתצוגת אמנות */
 @keyframes float {
     0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-    33% { transform: translate(10%, -15%) scale(1.1) rotate(5deg); }
-    66% { transform: translate(-10%, 15%) scale(0.9) rotate(-5deg); }
+    33% { transform: translate(8%, -10%) scale(1.05) rotate(3deg); }
+    66% { transform: translate(-8%, 10%) scale(0.95) rotate(-3deg); }
     100% { transform: translate(0, 0) scale(1) rotate(0deg); }
 }
