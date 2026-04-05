@@ -1813,3 +1813,50 @@ setInterval(() => {
         window.loadOlderMessages(); 
     }
 }, 500);
+// ====== מערכת הסטטיסטיקות ======
+
+// פונקציה להצגת כפתור הסטטיסטיקות (תקרא לה מהמקום שבו אתה בודק הרשאת כתיבה)
+window.showStatsButtonForAdmins = function() {
+    const btn = document.getElementById('statsMenuBtn');
+    if(btn) btn.style.display = 'flex';
+};
+
+window.openSiteStats = async function() {
+    const modal = document.getElementById('siteStatsModal');
+    if(modal) modal.style.display = 'flex';
+    
+    try {
+        // מנסה למשוך נתונים אמיתיים מהשרת
+        const res = await fetch(BACKEND + '/site_stats');
+        if(res.ok) {
+            const data = await res.json();
+            updateStatsUI(data);
+        } else {
+            throw new Error('Backend not ready');
+        }
+    } catch (e) {
+        // --- נתוני דמה להמחשה בלבד ---
+        // עד שהשרת שלך יתמוך בראוט '/site_stats', נציג נתונים אקראיים כדי לראות את העיצוב
+        const dummyData = {
+            online: Math.floor(Math.random() * 50) + 15,
+            hour: Math.floor(Math.random() * 200) + 100,
+            day: Math.floor(Math.random() * 1500) + 500,
+            week: Math.floor(Math.random() * 8000) + 2000,
+            peak: 423
+        };
+        updateStatsUI(dummyData);
+    }
+}
+
+function updateStatsUI(data) {
+    document.getElementById('statOnline').innerText = data.online || '-';
+    document.getElementById('statHour').innerText = data.hour || '-';
+    document.getElementById('statDay').innerText = data.day || '-';
+    document.getElementById('statWeek').innerText = data.week || '-';
+    document.getElementById('statPeak').innerText = data.peak || '-';
+}
+
+window.closeSiteStats = function() {
+    const modal = document.getElementById('siteStatsModal');
+    if(modal) modal.style.display = 'none';
+}
