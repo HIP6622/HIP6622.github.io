@@ -1860,18 +1860,51 @@ window.closeSiteStats = function() {
     const modal = document.getElementById('siteStatsModal');
     if(modal) modal.style.display = 'none';
 }
-// ====== שומר ראש לסטטיסטיקות ======
-// מוודא שכפתור הסטטיסטיקות יוצג אך ורק למי שיש לו הרשאות כתיבה (למי שרואה את סרגל המנהלים)
-setInterval(() => {
-    const composeBar = document.getElementById('adminComposeBar');
+// ====== מערכת הסטטיסטיקות ======
+window.openSiteStats = async function() {
+    const modal = document.getElementById('siteStatsModal');
+    if(modal) modal.style.display = 'flex';
+    
+    try {
+        const res = await fetch(BACKEND + '/site_stats');
+        const data = await res.json();
+        if (data.status === 'ok') {
+            document.getElementById('statOnline').innerText = data.online || '0';
+            document.getElementById('statHour').innerText = data.hour || '0';
+            document.getElementById('statDay').innerText = data.day || '0';
+            document.getElementById('statWeek').innerText = data.week || '0';
+            document.getElementById('statPeak').innerText = data.peak || '0';
+        } else {
+             document.getElementById('statOnline').innerText = 'שגיאה';
+        }
+    } catch (e) {
+        console.error('Failed to fetch stats:', e);
+        document.getElementById('statOnline').innerText = 'שגיאה';
+    }
+}
+
+window.closeSiteStats = function() {
+    const modal = document.getElementById('siteStatsModal');
+    if(modal) modal.style.display = 'none';
+}
+
+// ====== "שומר חכם" שמציג את הסטטיסטיקות רק למנהלים ======
+(function syncStatsButton() {
+    const adminBar = document.getElementById('adminComposeBar');
     const statsBtn = document.getElementById('statsMenuBtn');
     
-    if (composeBar && statsBtn) {
-        // בודק האם סרגל הניהול פעיל ומוצג כרגע במסך
-        if (window.getComputedStyle(composeBar).display !== 'none') {
-            statsBtn.style.display = 'flex'; // מציג למנהלים
-        } else {
-            statsBtn.style.display = 'none'; // מסתיר למשתמשים רגילים
-        }
+    if (adminBar && statsBtn) {
+        // הפונקציה שבודקת אם המשתמש רואה את סרגל המנהלים
+        const updateVisibility = () => {
+            const isVisible = window.getComputedStyle(adminBar).display !== 'none';
+            statsBtn.style.display = isVisible ? 'flex' : 'none';
+        };
+        
+        // עושה בדיקה אחת מיד כשהאתר עולה
+        updateVisibility();
+        
+        // מצמיד "מרגל" לסרגל המנהלים - ברגע שהוא נדלק/נכבה, הכפתור מגיב אוטומטית
+        const observer = new MutationObserver(updateVisibility);
+        observer.observe(adminBar, { attributes: true, attributeFilter: ['style', 'class'] });
     }
-}, 1000); // בודק פעם בשנייה כדי להיות מסונכרן עם מערכת ההתחברות שלך
+})();
