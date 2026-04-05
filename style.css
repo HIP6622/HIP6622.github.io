@@ -853,33 +853,24 @@ body.dark .creators-hdr:hover { color: #9ca3af; background: rgba(255,255,255,0.0
 /* ===== SEARCH FIX ===== */
 #searchResults { background: #eae9e4; }
 body.dark #searchResults { background: #0f0f15; }
-/* הצמדת הכפתור לערוצים ומניעת דחיפה לרצפה */
-#leftSidebar {
-    display: flex;
-    flex-direction: column;
-}
 
+/* מניעת הימתחות הערוצים כדי שהכפתור יעלה למעלה (בלי למעוך את המסך!) */
 #channelsList {
     flex: 0 0 auto !important; 
-    margin-bottom: 5px !important;
+    margin-bottom: 10px !important;
 }
 
-/* מניעת הימתחות הערוצים */
-#channelsList {
-    flex: 0 0 auto !important; 
-    margin-bottom: 5px !important;
-}
-
-/* כפתור יוצרים - עיצוב נקי ואלגנטי שמשתלב באתר */
+/* כפתור יוצרים - מותאם לעברית ולצבעי האתר */
 .creators-hdr {
-    padding: 10px 14px !important;
-    margin: 0 14px 14px !important;
+    direction: rtl !important; /* מכריח כיוון מימין לשמאל */
+    padding: 12px 16px !important;
+    margin: 10px 14px 15px !important;
     background: #f8fafc !important; /* אפור בהיר ועדין */
     border: 1px solid #e2e8f0 !important;
     border-radius: 8px !important;
-    color: #475569 !important; /* אפור כהה-כחלחל לטקסט */
-    font-weight: 700 !important;
-    font-size: 13px !important;
+    color: #334155 !important;
+    font-weight: bold !important;
+    font-size: 14px !important;
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
@@ -888,19 +879,20 @@ body.dark #searchResults { background: #0f0f15; }
 }
 
 .creators-hdr:hover {
-    background: #eff6ff !important; /* רקע כחלחל עדין במעבר עכבר */
-    color: #1a56db !important; /* כחול כמו של האתר */
+    background: #eff6ff !important;
+    color: #1a56db !important; /* כחול במעבר עכבר */
     border-color: #bfdbfe !important;
 }
 
 .ch-dot {
     display: inline-block !important;
-    width: 6px !important;
-    height: 6px !important;
-    background: #3b82f6 !important; /* נקודה כחולה זוהרת */
+    width: 8px !important;
+    height: 8px !important;
+    background: #3b82f6 !important; /* נקודה כחולה */
     border-radius: 50% !important;
     box-shadow: 0 0 6px rgba(59, 130, 246, 0.5) !important;
     animation: pulse-dot 2s infinite !important;
+    margin-right: 8px !important;
 }
 
 @keyframes pulse-dot {
@@ -910,51 +902,12 @@ body.dark #searchResults { background: #0f0f15; }
 }
 
 .ch-arrow {
-    font-size: 11px !important;
-    opacity: 0.5 !important;
+    font-size: 12px !important;
+    opacity: 0.6 !important;
     transition: transform 0.2s !important;
 }
 
 .creators-hdr:hover .ch-arrow {
-    transform: translateX(-3px) !important;
+    transform: translateX(-4px) !important; /* תזוזת החץ שמאלה */
     opacity: 1 !important;
-}
-// ====== העלאת תמונות אוטומטית ל-ImgBB ======
-async function uploadToImgBB(file) {
-  if (!file) return;
-  
-  const progressEl = document.getElementById('imgUploadProgress');
-  const urlInput = document.getElementById('composeImgUrl');
-  
-  // מציג למשתמש אנימציית טעינה ונועל את התיבה
-  progressEl.style.display = 'block';
-  urlInput.disabled = true;
-  
-  const formData = new FormData();
-  formData.append('image', file);
-  
-  try {
-    // שולח את התמונה ל-API שלך ב-ImgBB
-    const res = await fetch('https://api.imgbb.com/1/upload?key=3608f987ec12ff8b4b6100fbd0c86b0e', {
-      method: 'POST',
-      body: formData
-    });
-    const data = await res.json();
-    
-    if (data.success) {
-      // ברגע שחזר קישור, שמים אותו בתיבה ומציגים תצוגה מקדימה
-      urlInput.value = data.data.url;
-      updateComposeImg(); 
-    } else {
-      alert('שגיאה בהעלאת התמונה: ' + (data.error?.message || 'נסה שוב'));
-    }
-  } catch (err) {
-    console.error("ImgBB upload error:", err);
-    alert('שגיאת תקשורת בזמן העלאת התמונה. ודא שהאינטרנט מחובר.');
-  } finally {
-    // מחזיר את המצב לקדמותו בסיום הטעינה
-    progressEl.style.display = 'none';
-    urlInput.disabled = false;
-    document.getElementById('imgUploadInput').value = ''; 
-  }
 }
