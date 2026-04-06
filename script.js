@@ -107,9 +107,14 @@ async function checkAllowedAdmin(){
   if(!me)return;
   await loadAllowedMap();
   
-  if(isAdmin()) {
-      document.getElementById('rightSidebar').classList.add('show');
-      document.getElementById('adminChatPanel').classList.add('show');
+ if(isAdmin()) {
+      // 1. הסתרת הפס הלבן הצדדי למנהלים
+      const rightSidebar = document.getElementById('rightSidebar');
+      if (rightSidebar) rightSidebar.classList.remove('show'); 
+      
+      // 2. מניעת קריסת האתר כשהצ'אט לא קיים ב-HTML
+      const adminChatPanel = document.getElementById('adminChatPanel');
+      if (adminChatPanel) adminChatPanel.classList.add('show');
       
       if(typeof loadAdminChat === 'function') { loadAdminChat(); setInterval(loadAdminChat, 2500); setInterval(pollChatTyping, 2500); }
       if(typeof loadAdminMsgs === 'function') { loadAdminMsgs(); setInterval(loadAdminMsgs, 5000); }
