@@ -703,7 +703,7 @@ async function loadFeed(){
       let unreadInjected = false;
       let html = '';
 
-      items.forEach(e => {
+items.forEach(e => {
         if(!unreadInjected && lastReadTs > 0 && e.ts > lastReadTs) {
             html += `<div class="unread-sep" id="unreadMarker"><span>לא נקרא</span></div>`;
             unreadInjected = true;
@@ -723,26 +723,6 @@ async function loadFeed(){
 
       if(lastTs > 0) setLastReadServer(lastTs);
       if(typeof triggerStats === 'function') triggerStats();
-      if(items.length) await pollAll();
-    }
-  } catch(e) {}
-  setLoading(false);
-}
-
-      inner.innerHTML = items.length ? html : '';
-      document.getElementById('empty').style.display = items.length ? 'none' : 'block';
-      
-      const marker = document.getElementById('unreadMarker');
-      if (marker) {
-          setTimeout(() => marker.scrollIntoView({behavior: 'smooth', block: 'center'}), 100);
-      } else {
-          document.getElementById('feedWrap').scrollTop=999999;
-      }
-
-      if(lastTs > 0) setLastReadServer(lastTs);
-      
-      if(typeof triggerStats === 'function') triggerStats();
-      
       if(items.length) await pollAll();
     }
   } catch(e) {}
