@@ -667,7 +667,7 @@ async function sendComment(){
   try{
     const r=await fetch(BACKEND+'/feed_comment_add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:me.email,name:me.name,picture:me.picture,msgId:activeCmtMsgId,text})});
     const d=await r.json();
-    if(d.status==='ok'){
+if(d.status==='ok'){
       const b=document.getElementById('cpBody');b.querySelector('.no-cmt')?.remove();
       const div=document.createElement('div');div.innerHTML=buildCmt(activeCmtMsgId,d.comment);b.appendChild(div.firstChild);b.scrollTop=b.scrollHeight;
       cmtCount[activeCmtMsgId]=(cmtCount[activeCmtMsgId]||0)+1;updateCmtBtn(activeCmtMsgId,cmtCount[activeCmtMsgId]);
@@ -710,6 +710,24 @@ async function loadFeed(){
         }
         html += buildMsg(e);
       });
+
+      inner.innerHTML = items.length ? html : '';
+      document.getElementById('empty').style.display = items.length ? 'none' : 'block';
+      
+      const marker = document.getElementById('unreadMarker');
+      if (marker) {
+          setTimeout(() => marker.scrollIntoView({behavior: 'smooth', block: 'center'}), 100);
+      } else {
+          document.getElementById('feedWrap').scrollTop=999999;
+      }
+
+      if(lastTs > 0) setLastReadServer(lastTs);
+      if(typeof triggerStats === 'function') triggerStats();
+      if(items.length) await pollAll();
+    }
+  } catch(e) {}
+  setLoading(false);
+}
 
       inner.innerHTML = items.length ? html : '';
       document.getElementById('empty').style.display = items.length ? 'none' : 'block';
