@@ -784,7 +784,41 @@ async function pollAll(){
     const counts=d.comment_counts||{};Object.entries(counts).forEach(([mid,n])=>{if(n!==(cmtCount[mid]||0)){cmtCount[mid]=n;updateCmtBtn(mid,n);}});
   }catch(e){}finally{pollPending=false;}
 }
+function updateScrollBtn() {
+    const btn = document.getElementById('scrollDownBtn');
+    if (!btn) return;
+    
+    const badge = btn.querySelector('.badge') || btn; // אם יש באדג' למספר, נשתמש בו
+    
+    if (newCount > 0) {
+        btn.style.display = 'flex';
+        btn.classList.add('has-new');
+        // עדכון מספר ההודעות החדשות על הכפתור אם יש אלמנט מתאים
+        const countEl = btn.querySelector('#newMsgsCount');
+        if(countEl) countEl.innerText = newCount;
+    } else if (atBottom) {
+        btn.style.display = 'none';
+    } else {
+        btn.style.display = 'flex';
+        btn.classList.remove('has-new');
+        const countEl = btn.querySelector('#newMsgsCount');
+        if(countEl) countEl.innerText = '';
+    }
+}
 
+// הוספת מאזין גלילה כדי שהכפתור ידע מתי להופיע/להעלם אוטומטית
+document.getElementById('feedWrap')?.addEventListener('scroll', () => {
+    const wrap = document.getElementById('feedWrap');
+    const isAtBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 50;
+    
+    if (isAtBottom) {
+        atBottom = true;
+        newCount = 0;
+    } else {
+        atBottom = false;
+    }
+    updateScrollBtn();
+});
 function scrollToBottom(){
     document.getElementById('feedWrap').scrollTo({top:999999,behavior:'smooth'});
     newCount=0;
