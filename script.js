@@ -105,6 +105,8 @@ let currentChannelId = 'general';
 let CHANNELS = [
   { id: 'general', name: 'הערוץ הרשמי', icon: 'fa-star' },
   { id: 'news', name: 'חדשות ועדכוני AI', icon: 'fa-newspaper' },
+  { id: 'tutorials_images', name: 'הדרכות AI - יצירת תמונות', icon: 'fa-palette' },
+  { id: 'tutorials_extra', name: 'הדרכות AI - מה שמסביב', icon: 'fa-tools' },
   { id: 'system', name: 'עדכוני מערכת', icon: 'fa-bullhorn' },
   { id: 'misc', name: 'שונות (בדיחות ותכני AI)', icon: 'fa-smile-beam' }
 ];
